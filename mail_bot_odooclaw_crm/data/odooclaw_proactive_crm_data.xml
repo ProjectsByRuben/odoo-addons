@@ -28,7 +28,7 @@
             <field name="sequence">15</field>
             <field name="enabled" eval="True" />
             <field name="model_name">crm.lead</field>
-            <field name="signal_definition">{"open_opportunities": {"model": "crm.lead", "domain": [["type", "=", "opportunity"], ["stage_id.is_won", "=", false]]}, "overdue_opportunities": {"model": "crm.lead", "domain": [["type", "=", "opportunity"], ["date_deadline", "<", "$today"], ["stage_id.is_won", "=", false]]}}</field>
+            <field name="signal_definition">{"open_opportunities": {"model": "crm.lead", "domain": [["type", "=", "opportunity"], ["stage_id.is_won", "=", false]]}, "overdue_opportunities": {"model": "crm.lead", "domain": [["type", "=", "opportunity"], ["date_deadline", "&lt;", "$today"], ["stage_id.is_won", "=", false]]}}</field>
         </record>
     </data>
 </odoo>
