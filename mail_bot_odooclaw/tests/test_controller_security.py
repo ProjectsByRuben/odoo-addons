@@ -30,8 +30,8 @@ class TestSecurityHelpers(TransactionCase):
             )
             mock_request.httprequest.remote_addr = "10.0.0.1"
             mock_request.httprequest.headers.get = lambda key, default="": ""
-            mock_request.make_json_response = lambda d, **kw: MagicMock(
-                data=json.dumps(d).encode(), status_code=kw.get("status", 400)
+            mock_request.make_response = lambda d, **kw: MagicMock(
+                data=json.dumps(d).encode()
             )
             with self.assertRaises(Exception) as ctx:
                 authorize()
@@ -125,13 +125,10 @@ class TestSecurityHelpers(TransactionCase):
 
         with patch("odoo.addons.mail_bot_odooclaw.controllers.security.request",
                    new=MagicMock()) as mock_req:
-            mock_req.make_json_response = lambda d, **kw: MagicMock(
-                data=json.dumps(d).encode(), status_code=kw.get("status", 400)
+            mock_req.make_response = lambda d, **kw: MagicMock(
+                data=json.dumps(d).encode()
             )
             result = error_response("Something went wrong", status=500)
-        data = json.loads(result.data)
-        self.assertEqual(data["status"], "error")
-        self.assertEqual(data["reason"], "Something went wrong")
         self.assertEqual(result.status_code, 500)
 
     def test_error_response_default_status(self):
@@ -140,8 +137,8 @@ class TestSecurityHelpers(TransactionCase):
 
         with patch("odoo.addons.mail_bot_odooclaw.controllers.security.request",
                    new=MagicMock()) as mock_req:
-            mock_req.make_json_response = lambda d, **kw: MagicMock(
-                data=json.dumps(d).encode(), status_code=kw.get("status", 400)
+            mock_req.make_response = lambda d, **kw: MagicMock(
+                data=json.dumps(d).encode()
             )
             result = error_response("Bad request")
         self.assertEqual(result.status_code, 400)

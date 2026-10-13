@@ -112,8 +112,8 @@ class TestMailOdooClawReplyToken(TransactionCase):
                 return real_env[key]
 
         mock.env = _EnvProxy()
-        mock.make_json_response = lambda d, **kw: MagicMock(
-            data=json.dumps(d).encode(), status_code=kw.get("status", 400)
+        mock.make_response = lambda d, **kw: MagicMock(
+            data=json.dumps(d).encode()
         )
         return mock
 

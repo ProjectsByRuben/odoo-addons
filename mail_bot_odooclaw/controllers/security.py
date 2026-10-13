@@ -95,16 +95,18 @@ from werkzeug.exceptions import HTTPException
 
 def _abort(status, reason):
     """Send a JSON error response and raise to short-circuit the handler."""
+    body = json.dumps({"status": "error", "reason": reason})
     raise HTTPException(
-        response=request.make_json_response(
-            {"status": "error", "reason": reason}, status=status
-        )
+        response=request.make_response(body, headers=[("Content-Type", "application/json")])
     )
 
 
 def error_response(reason, status=400):
     """Return a sanitized JSON error response (no traceback leakage)."""
-    return request.make_json_response({"status": "error", "reason": reason}, status=status)
+    body = json.dumps({"status": "error", "reason": reason})
+    resp = request.make_response(body, headers=[("Content-Type", "application/json")])
+    resp.status_code = status
+    return resp
 
 
 def log_exception(logger, msg):

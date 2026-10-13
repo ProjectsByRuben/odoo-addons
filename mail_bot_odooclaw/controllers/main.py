@@ -13,7 +13,7 @@ def _normalize_x2many_ids(value, field_name):
 
     Odoo's ``mail.thread.message_post`` validates ``attachment_ids`` (and
     ``voice_ids``) as a literal list of ints and raises ``ValueError`` on
-    anything else — before the message exists. Measured on Odoo Server 14.0:
+    anything else — before the message exists. According to the core 14.0 source:
 
         attachment_ids=[(6, 0, [48341])]  -> ValueError, nothing created
         attachment_ids=[48341]            -> message created, attachment linked
@@ -94,19 +94,15 @@ class OdooClawController(http.Controller):
 
             # Validate reply token — ensures this reply was solicited by a human message
             if not reply_token:
-                return request.make_json_response(
-                    {"status": "error", "reason": "Missing reply_token"},
-                    status=401
-                )
+                return security.error_response("Missing reply_token", status=401)
             token_valid = (
                 request.env["mail.odooclaw.reply.token"]
                 .sudo()
                 ._validate(reply_token, model_name, res_id)
             )
             if not token_valid:
-                return request.make_json_response(
-                    {"status": "error", "reason": "Invalid or expired reply_token"},
-                    status=403
+                return security.error_response(
+                    "Invalid or expired reply_token", status=403
                 )
 
             bot_user = (
@@ -168,7 +164,10 @@ class OdooClawController(http.Controller):
                     if bot_member:
                         bot_member.sudo()._notify_typing(is_typing=False)
 
-                return request.make_json_response({"status": "ok"})
+                body = json.dumps({"status": "ok"})
+                return request.make_response(
+                    body, headers=[("Content-Type", "application/json")]
+                )
 
             return security.error_response("Record not found")
         except Exception as e:
@@ -276,7 +275,10 @@ class OdooClawController(http.Controller):
                         result = result.ids[0]
                     else:
                         result = result.ids
-                return request.make_json_response({"status": "ok", "result": result})
+                body = json.dumps({"status": "ok", "result": result})
+                return request.make_response(
+                    body, headers=[("Content-Type", "application/json")]
+                )
             except Exception as orm_error:
                 return security.error_response("Odoo ORM error", status=500)
 
