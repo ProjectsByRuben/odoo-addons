@@ -23,10 +23,22 @@ class TestReplyEndpoint(HttpCase):
             "name": "HTTP Test User",
             "login": "http_test_user",
         })
+        # Create a channel so test 2 has a valid target (avoids dependency on
+        # whether id=1 exists in the test database).
+        cls.channel = cls.env["mail.channel"].create({
+            "name": "HTTP test channel",
+            "channel_type": "chat",
+        })
         # Configure the shared secret so authorize() passes.
         cls.env["ir.config_parameter"].sudo().set_param(
             "odooclaw.reply_token", "test-secret"
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        # Clean up the config parameter so it doesn't leak into other tests.
+        cls.env["ir.config_parameter"].sudo().delete_param("odooclaw.reply_token")
 
     def _post(self, payload):
         """POST to /odooclaw/reply with the shared secret."""
@@ -53,14 +65,14 @@ class TestReplyEndpoint(HttpCase):
 
     def test_reply_with_valid_token_returns_ok(self):
         """A valid reply_token produces an HTTP 200 + JSON body."""
-        # Create a valid token first.
+        # Create a valid token for our own channel.
         token_rec = self.env["mail.odooclaw.reply.token"].sudo()._generate(
-            model="mail.channel", res_id=1, message_id=False
+            model="mail.channel", res_id=self.channel.id, message_id=False
         )
 
         resp = self._post({
             "model": "mail.channel",
-            "res_id": 1,
+            "res_id": self.channel.id,
             "message": "Hello from HTTP!",
             "reply_token": token_rec.token,
         })

@@ -95,10 +95,8 @@ from werkzeug.exceptions import HTTPException
 
 def _abort(status, reason):
     """Send a JSON error response and raise to short-circuit the handler."""
-    body = json.dumps({"status": "error", "reason": reason})
-    raise HTTPException(
-        response=request.make_response(body, headers=[("Content-Type", "application/json")])
-    )
+    resp = error_response(reason, status=status)
+    raise HTTPException(response=resp)
 
 
 def error_response(reason, status=400):
