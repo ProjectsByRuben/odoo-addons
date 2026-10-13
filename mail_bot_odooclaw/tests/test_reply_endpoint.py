@@ -38,7 +38,7 @@ class TestReplyEndpoint(HttpCase):
     def tearDownClass(cls):
         super().tearDownClass()
         # Clean up the config parameter so it doesn't leak into other tests.
-        cls.env["ir.config_parameter"].sudo().delete_param("odooclaw.reply_token")
+        cls.env["ir.config_parameter"].sudo().search([("key", "=", "odooclaw.reply_token")]).unlink()
 
     def _post(self, payload):
         """POST to /odooclaw/reply with the shared secret."""
