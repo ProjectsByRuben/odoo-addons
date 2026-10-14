@@ -3,12 +3,50 @@ import requests
 import json
 import threading
 from odoo import models, api, tools, _
+from odoo.http import request
 
 _logger = logging.getLogger(__name__)
 
 
 class MailThread(models.AbstractModel):
     _inherit = "mail.thread"
+
+    def _odooclaw_sender_user(self):
+        """Use the authenticated session, never the audit author, for permissions."""
+        # impersonate_login deliberately attributes messages to the original
+        # administrator. The active session UID is the impersonated user.
+        sender_uid = request.session.uid if request and request.session.uid else self.env.uid
+        return self.env["res.users"].sudo().browse(sender_uid)
+
+    @api.model
+    def odooclaw_session_info(self):
+        """Describe only the effective user's identity and model ACLs."""
+        user = self.env.user
+        permissions = {}
+        for model in (
+            "res.partner", "sale.order", "sale.order.line", "purchase.order",
+            "mrp.production", "mrp.workorder", "stock.picking", "account.move",
+            "contract.contract", "contract.line", "quality.alert", "res.users",
+            "res.groups", "ir.model.access", "ir.rule", "ir.attachment",
+        ):
+            available = model in self.env.registry.models
+            permissions[model] = {"available": available}
+            for operation in ("read", "create", "write", "unlink"):
+                permissions[model][operation] = bool(
+                    available and self.env[model].check_access_rights(
+                        operation, raise_exception=False
+                    )
+                )
+        return {
+            "user": {
+                "id": user.id, "name": user.name, "login": user.login,
+                "company_id": self.env.company.id,
+                "company_name": self.env.company.name,
+                "allowed_company_ids": self.env.companies.ids,
+            },
+            "model_permissions": permissions,
+            "record_rules": "Model ACLs do not override record rules; Odoo checks every operation.",
+        }
 
     def _resolve_private_reply_channel(self, author_partner, bot_partner):
         Channel = self.env["mail.channel"].sudo()
@@ -54,7 +92,7 @@ class MailThread(models.AbstractModel):
         if message.model == "mail.channel":
             channel = self.env["mail.channel"].browse(message.res_id)
             if (
-                channel.channel_type == "chat"
+                (channel.channel_type == "chat" or channel.odooclaw_conversation)
                 and odooclaw_partner_id
                 in channel.channel_member_ids.mapped("partner_id").ids
             ):
@@ -98,6 +136,17 @@ class MailThread(models.AbstractModel):
                         )
                         body_text += f"\n[Adjunto: {att.name} (ID: {att.id})]\n"
 
+            # Resolve permissions from the authenticated user, not mail audit data.
+            sender_user = self._odooclaw_sender_user()
+            if not sender_user.exists() or not sender_user.active or sender_user.share:
+                _logger.warning("OdooClaw ignored message without an active internal user")
+                return message
+            session_info = self.with_user(sender_user).odooclaw_session_info()
+
+            author_display_name = sender_user.name
+            if channel and getattr(channel, 'odooclaw_employee_id', False):
+                author_display_name = f"{channel.odooclaw_employee_id.name} ({sender_user.name})"
+
             # Send webhook asynchronously
             payload = {
                 "message_id": message.id,
@@ -105,13 +154,19 @@ class MailThread(models.AbstractModel):
                 "res_id": message.res_id,
                 "reply_model": message.model,
                 "reply_res_id": message.res_id,
-                "author_id": message.author_id.id,
-                "author_user_id": message.author_id.user_ids[:1].id or False,
-                "author_name": message.author_id.name,
+                "author_id": sender_user.partner_id.id,
+                "author_user_id": sender_user.id,
+                "author_name": author_display_name,
+                "employee_id": channel.odooclaw_employee_id.id if channel and getattr(channel, 'odooclaw_employee_id', False) else 0,
+                "employee_name": channel.odooclaw_employee_id.name if channel and getattr(channel, 'odooclaw_employee_id', False) else "",
+                "session_info": session_info,
                 "body": body_text,
                 "is_dm": is_dm,
-                "company_id": self.env.company.id,
-                "allowed_company_ids": self.env.context.get("allowed_company_ids", []),
+                "conversation_id": (
+                    channel.id if is_dm and channel.odooclaw_conversation else 0
+                ),
+                "company_id": session_info["user"]["company_id"],
+                "allowed_company_ids": session_info["user"]["allowed_company_ids"],
                 "voice_attachments": voice_attachments,
                 "invoice_attachments": invoice_attachments,
                 "attachments": other_attachments,
@@ -122,7 +177,7 @@ class MailThread(models.AbstractModel):
                 if channel.channel_type == "chat":
                     # Existing 1-to-1 chat: keep private reply behaviour
                     private_channel = self._resolve_private_reply_channel(
-                        message.author_id, odooclaw_user.partner_id
+                        sender_user.partner_id, odooclaw_user.partner_id
                     )
                     payload["reply_model"] = "mail.channel"
                     payload["reply_res_id"] = private_channel.id
@@ -133,12 +188,12 @@ class MailThread(models.AbstractModel):
             # visibility into what happened between its last reply and now.
             chatter_context = []
             if not is_dm and payload["reply_model"] != "mail.channel":
-                for ctx_msg in self.env["mail.message"].sudo().search([
+                for ctx_msg in self.env["mail.message"].with_user(sender_user).search([
                     ("model", "=", payload["reply_model"]),
                     ("res_id", "=", payload["reply_res_id"]),
                     ("message_type", "in", ["comment", "email"]),
                     ("id", "!=", message.id),
-                ], order="date desc"):
+                ], order="date desc", limit=10):
                     if ctx_msg.author_id == odooclaw_user.partner_id:
                         break
                     chatter_context.append({
@@ -156,6 +211,8 @@ class MailThread(models.AbstractModel):
                 model=payload["reply_model"],
                 res_id=payload["reply_res_id"],
                 message_id=message.id,
+                user_id=sender_user.id,
+                allowed_company_ids=session_info["user"]["allowed_company_ids"],
             )
             payload["reply_token"] = reply_token_rec.token
 
@@ -164,11 +221,21 @@ class MailThread(models.AbstractModel):
                 .sudo()
                 .get_param("odooclaw.webhook_url", "http://odooclaw:18790/webhook/odoo")
             )
+            webhook_token = (
+                self.env["ir.config_parameter"]
+                .sudo()
+                .get_param("odooclaw.webhook_token", "")
+            )
+            webhook_headers = {}
+            if webhook_token:
+                webhook_headers["X-OdooClaw-Token"] = webhook_token
 
             def send_webhook():
                 try:
                     _logger.info("Sending webhook to OdooClaw: %s", webhook_url)
-                    res = requests.post(webhook_url, json=payload, timeout=10)
+                    res = requests.post(
+                        webhook_url, json=payload, headers=webhook_headers, timeout=10
+                    )
                     _logger.info("OdooClaw response: %s", res.text)
                 except Exception:
                     _logger.exception("Failed to send webhook to OdooClaw")

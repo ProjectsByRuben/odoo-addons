@@ -1,6 +1,6 @@
 {
     "name": "OdooClaw AI Bot",
-    "version": "16.0.1.1.0",
+    "version": "16.0.1.6.0",
     "category": "Discuss",
     "summary": "Integrate OdooClaw AI agent via webhooks in Odoo Discuss",
     "description": """
@@ -21,6 +21,16 @@ Features:
         "data/odooclaw_cron.xml",
     ],
     "installable": True,
+    "assets": {
+        "web.assets_backend": [
+            "mail_bot_odooclaw/static/src/conversations.js",
+            "mail_bot_odooclaw/static/src/conversation_lifecycle.js",
+            "mail_bot_odooclaw/static/src/conversations.xml",
+            "mail_bot_odooclaw/static/src/progress.scss",
+            "mail_bot_odooclaw/static/src/model_usage.js",
+            "mail_bot_odooclaw/static/src/model_usage.xml",
+        ],
+    },
     "application": False,
     "auto_install": False,
     "maintainer": "nicolasramos",

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mail_bot_odooclaw.ChatWindowUsage" t-inherit="mail.ChatWindow" t-inherit-mode="extension" owl="1">
+        <xpath expr="//t[@t-if='chatWindow.threadView']" position="after">
+            <OdooClawModelUsage t-if="chatWindow.thread and chatWindow.thread.odooclawUsageEnabled and !chatWindow.isFolded"
+                channelId="chatWindow.thread.id" t-key="chatWindow.thread.id"/>
+        </xpath>
+    </t>
+    <t t-name="mail_bot_odooclaw.ModelUsage" owl="1">
+        <div class="o_odooclaw_usage d-flex justify-content-end align-items-center flex-shrink-0" t-att-title="title" t-att-aria-label="title" role="status">
+            <i class="fa fa-bolt me-1" aria-hidden="true"/>
+            <span class="me-1">Disponible</span>
+            <t t-if="state.available">
+                <t t-foreach="state.windows" t-as="quotaWindow" t-key="quotaWindow_index">
+                    <span t-attf-class="o_odooclaw_usage_badge o_odooclaw_usage_{{ color(quotaWindow) }}">
+                        <t t-esc="label(quotaWindow)"/> <strong><t t-esc="Math.floor(quotaWindow.remaining)"/> %</strong>
+                    </span>
+                </t>
+            </t>
+            <span t-else="" class="text-muted"><t t-esc="state.loaded ? 'Sin datos' : 'Consultando…'"/></span>
+        </div>
+    </t>
+</templates>

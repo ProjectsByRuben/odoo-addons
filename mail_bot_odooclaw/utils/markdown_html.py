@@ -167,18 +167,30 @@ def markdown_to_safe_html(text):
 
 
 def _render_inline(text):
+    # Code and link destinations must never pass through emphasis substitutions.
+    import uuid
+    prefix = "MD" + uuid.uuid4().hex + "X"
+    saved = {}
+
+    def protect(value):
+        key = prefix + str(len(saved)) + "X"
+        saved[key] = value
+        return key
+
     rendered = html.escape(text or "", quote=False)
-    rendered = re.sub(r"`([^`]+)`", lambda m: "<code>%s</code>" % m.group(1), rendered)
+    rendered = re.sub(r"`([^`]+)`", lambda m: protect("<code>%s</code>" % m.group(1)), rendered)
+    rendered = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", lambda m: protect(_render_link(m)), rendered)
     rendered = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", rendered)
-    rendered = re.sub(r"__(.+?)__", r"<strong>\1</strong>", rendered)
+    rendered = re.sub(r"(?<!\w)__(.+?)__(?!\w)", r"<strong>\1</strong>", rendered)
     rendered = re.sub(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", r"<em>\1</em>", rendered)
-    rendered = re.sub(r"(?<!_)_(?!\s)(.+?)(?<!\s)_(?!_)", r"<em>\1</em>", rendered)
-    rendered = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", _render_link, rendered)
+    rendered = re.sub(r"(?<![\w_])_(?!\s)(.+?)(?<!\s)_(?![\w_])", r"<em>\1</em>", rendered)
+    for key, value in reversed(list(saved.items())):
+        rendered = rendered.replace(key, value)
     return rendered
 
 
 def _render_link(match):
-    label = match.group(1)
+    label = _render_inline(html.unescape(match.group(1)))
     href = html.unescape(match.group(2)).strip()
     parsed = urlparse(href)
     if parsed.scheme and parsed.scheme not in ("http", "https", "mailto"):

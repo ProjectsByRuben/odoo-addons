@@ -1,0 +1,64 @@
+.o_odooclaw_progress {
+    --oc-accent: #7160b5;
+    --oc-soft: #eeeaf8;
+    padding: 14px;
+    margin: 3px 0;
+    border: 1px solid #e5dff0;
+    background: linear-gradient(145deg, #faf9fe, #fff);
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(50, 38, 90, .05);
+    max-width: 440px;
+    color: #373447;
+    .o_odooclaw_progress_header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .o_odooclaw_progress_brand {
+        display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--oc-accent);
+        i { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 8px; background: var(--oc-soft); }
+    }
+    .o_odooclaw_progress_badge {
+        display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 8px;
+        background: var(--oc-soft); color: var(--oc-accent); font-size: 10px; font-weight: 600; white-space: nowrap;
+        span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: odooclaw_pulse 1.6s ease-in-out infinite; }
+    }
+    .o_odooclaw_progress_steps { margin-bottom: 6px; }
+    .o_odooclaw_progress_step {
+        display: flex; align-items: baseline; gap: 8px; position: relative; font-size: 11px; line-height: 1.45;
+        color: #767083; padding: 0 0 7px 0;
+        .o_odooclaw_step_dot { flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; background: #b9b0d2; }
+        &:not(:last-child)::after { content: ""; position: absolute; left: 2px; top: 11px; bottom: 1px; width: 1px; background: #e5dff0; }
+    }
+    .o_odooclaw_progress_current { font-size: 12px; line-height: 1.5; strong { font-weight: 600; } }
+    .o_odooclaw_progress_track {
+        height: 4px; margin: 12px 0 9px; background: var(--oc-soft); border-radius: 6px; overflow: hidden;
+        span { display: block; height: 100%; width: 35%; border-radius: 6px; background: linear-gradient(90deg, #a794df, var(--oc-accent)); animation: odooclaw_activity 1.6s ease-in-out infinite alternate; }
+    }
+    .o_odooclaw_progress_footer { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #81798e; }
+    .o_odooclaw_progress_estimate { margin-top: 5px; font-size: 10px; color: #81798e; }
+    &.o_odooclaw_progress_done {
+        --oc-accent: #27845b; --oc-soft: #e8f5ee;
+        border-color: #d8ebe0; background: linear-gradient(145deg, #f6fbf8, #fff);
+        .o_odooclaw_progress_track span { width: 100%; background: var(--oc-accent); animation: none; }
+        .o_odooclaw_progress_badge span { animation: none; }
+    }
+}
+@keyframes odooclaw_activity { from { transform: translateX(0); } to { transform: translateX(185%); } }
+@keyframes odooclaw_pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+    .o_odooclaw_progress .o_odooclaw_progress_track span, .o_odooclaw_progress .o_odooclaw_progress_badge span { animation: none; }
+}
+
+.o_odooclaw_usage {
+    gap: 4px;
+    padding: 4px 10px;
+    border-top: 1px solid rgba(113, 75, 103, .08);
+    font-size: 10px;
+    color: #756d79;
+    background: #fcfbfd;
+    .o_odooclaw_usage_badge {
+        padding: 2px 6px;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+    .o_odooclaw_usage_normal { color: #22765d; background: #eaf6f0; }
+    .o_odooclaw_usage_warning { color: #906313; background: #fff4db; }
+    .o_odooclaw_usage_low { color: #b33e49; background: #fcecef; }
+}

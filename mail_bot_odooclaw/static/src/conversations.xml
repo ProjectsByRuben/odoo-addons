@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mail_bot_odooclaw.Conversations" owl="1">
+        <Dropdown beforeOpen.bind="loadConversations">
+            <t t-set-slot="toggler">
+                <i class="fa fa-comments-o me-1" aria-hidden="true"/>
+                <span>OdooClaw</span>
+                <t t-if="state.employees.length and state.selectedEmployeeId">
+                    <t t-foreach="state.employees" t-as="emp" t-key="emp.id">
+                        <t t-if="emp.id === state.selectedEmployeeId">
+                            <span class="badge bg-primary text-white ms-1" style="font-size: 0.72rem; padding: 2px 6px;">
+                                <i class="fa fa-user me-1"/>
+                                <t t-esc="emp.name.split(' ')[0]"/>
+                            </span>
+                        </t>
+                    </t>
+                </t>
+            </t>
+            <t t-if="state.employees.length">
+                <div class="px-3 py-2 bg-light border-bottom">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="small fw-bold text-dark"><i class="fa fa-id-badge text-primary me-1"/>Operario actual:</span>
+                        <t t-if="state.selectedEmployeeId">
+                            <span class="badge bg-success" style="font-size: 0.65rem;">Identificado</span>
+                        </t>
+                    </div>
+                    <select class="form-select form-select-sm" t-att-value="state.selectedEmployeeId" t-on-change="onEmployeeChange">
+                        <option value="">-- Selecciona tu nombre --</option>
+                        <t t-foreach="state.employees" t-as="emp" t-key="emp.id">
+                            <option t-att-value="emp.id" t-att-selected="emp.id === state.selectedEmployeeId">
+                                <t t-esc="emp.name"/>
+                            </option>
+                        </t>
+                    </select>
+                </div>
+            </t>
+            <DropdownItem onSelected.bind="newConversation">
+                <i class="fa fa-plus me-2 text-success" aria-hidden="true"/>Nueva conversación
+            </DropdownItem>
+            <DropdownItem onSelected.bind="showHelp">
+                <i class="fa fa-question-circle me-2 text-muted" aria-hidden="true"/>Cómo usarlo
+            </DropdownItem>
+            <div class="dropdown-divider"/>
+            <div class="px-3 py-1 text-muted small">
+                <t t-if="state.employees.length and state.selectedEmployeeId">
+                    Conversaciones del operario
+                </t>
+                <t t-else="">
+                    Mis conversaciones (últimas 30)
+                </t>
+            </div>
+            <t t-if="!state.conversations.length">
+                <div class="px-3 py-2 text-muted small">Todavía no hay conversaciones.</div>
+            </t>
+            <t t-foreach="state.conversations" t-as="conversation" t-key="conversation.id">
+                <div class="d-flex align-items-center">
+                    <DropdownItem class="'flex-grow-1'" onSelected="() => this.openConversation(conversation.id)">
+                        <t t-esc="conversation.name"/>
+                    </DropdownItem>
+                    <button class="btn btn-sm btn-link text-danger me-2 flex-shrink-0" t-att-disabled="state.busy" t-att-title="'Borrar ' + conversation.name" t-att-aria-label="'Borrar ' + conversation.name" t-on-click.stop="() => this.deleteConversation(conversation)">
+                        <i class="fa fa-trash-o me-1" aria-hidden="true"/>Borrar
+                    </button>
+                </div>
+            </t>
+        </Dropdown>
+    </t>
+    <t t-name="mail_bot_odooclaw.ConversationHelp" owl="1">
+        <Dialog title="'Cómo usar OdooClaw'" size="'md'">
+            <p>OdooClaw te ayuda a consultar información y realizar tareas con los permisos del usuario con el que has entrado en Odoo.</p>
+            <ol>
+                <li>En puestos compartidos (almacén, taller, etc.), selecciona tu nombre en el desplegable <strong>Operario actual</strong>.</li>
+                <li>En la barra superior, pulsa <strong>OdooClaw → Nueva conversación</strong>.</li>
+                <li>Se abre un chat pequeño en una esquina, sin salir de la pantalla donde estás. Si estás en Conversaciones, se abre desde el menú principal. Escribe lo que necesitas: por ejemplo, «Consulta el pedido PV…».</li>
+                <li>Espera la respuesta. El bot te avisará mientras trabaja; si necesita datos, te los pedirá.</li>
+                <li>Para cambiar de tema sin arrastrar el contexto anterior, abre otra <strong>Nueva conversación</strong>.</li>
+                <li>Para retomar una anterior, selecciónala en <strong>Mis conversaciones</strong>. En Conversaciones también aparecen tus grupos privados con OdooClaw.</li>
+            </ol>
+            <p><strong>Una conversación nueva empieza sin los mensajes ni el contexto de otras conversaciones.</strong> Las anteriores se conservan; abrir una nueva no borra mensajes ni deshace operaciones realizadas en Odoo.</p>
+            <p>Cada solicitud se ejecuta con tu identidad y tus permisos actuales. Abrir otro chat no concede permisos adicionales.</p>
+            <p>En la cabecera del chat puedes minimizarlo, cerrarlo o pulsar el icono de ampliar para verlo a pantalla completa.</p>
+            <p>Para borrar un chat, abre <strong>OdooClaw → Mis conversaciones</strong>, pulsa <strong>Borrar</strong> junto a su nombre y confirma. Se borran sus mensajes y su contexto de IA; las operaciones realizadas en Odoo se conservan. Solo puedes borrar chats privados entre tu usuario y OdooClaw, y debes esperar a que el bot termine de trabajar.</p>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-on-click="props.close">Entendido</button>
+            </t>
+        </Dialog>
+    </t>
+</templates>
