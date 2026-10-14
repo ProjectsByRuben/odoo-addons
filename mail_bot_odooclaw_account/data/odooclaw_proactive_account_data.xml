@@ -32,7 +32,7 @@
             <field name="model_name">account.move</field>
             <field
                 name="signal_definition"
-            >{"unposted_invoices": {\"model\": \"account.move\", \"domain\": [[\"move_type\", \"=\", \"out_invoice\"], [\"state\", \"=\", \"draft\"]]}, \"unposted_credit_notes\": {\"model\": \"account.move\", \"domain\": [[\"move_type\", \"=\", \"out_refund\"], [\"state\", \"=\", \"draft\"]]}, \"unreconciled_invoices\": {\"model\": \"account.move\", \"domain\": [[\"move_type\", \"=\", \"out_invoice\"], [\"state\", \"=\", \"posted\"], [\"matching_amount\", \"!=\", 0]]}, \"unreconciled_debits\": {\"model\": \"account.move\", \"domain\": [[\"move_type\", \"=\", \"in_invoice\"], [\"state\", \"=\", \"posted\"], [\"matching_amount\", \"!=\", 0]]}, \"unreconciled_credits\": {\"model\": \"account.move\", \"domain\": [[\"move_type\", \"=\", \"in_refund\"], [\"state\", \"=\", \"posted\"], [\"matching_amount\", \"!=\", 0]]}}</field>
+            >{"unposted_invoices": {"model": "account.move", "domain": [["move_type", "=", "out_invoice"], ["state", "=", "draft"]]}, "unposted_credit_notes": {"model": "account.move", "domain": [["move_type", "=", "out_refund"], ["state", "=", "draft"]]}, "unreconciled_invoices": {"model": "account.move", "domain": [["move_type", "=", "out_invoice"], ["state", "=", "posted"], ["matching_amount", "!=", 0]]}, "unreconciled_debits": {"model": "account.move", "domain": [["move_type", "=", "in_invoice"], ["state", "=", "posted"], ["matching_amount", "!=", 0]]}, "unreconciled_credits": {"model": "account.move", "domain": [["move_type", "=", "in_refund"], ["state", "=", "posted"], ["matching_amount", "!=", 0]]}}</field>
         </record>
         <record id="area_accounting_bank" model="mail.odooclaw.area">
             <field name="name">Accounting - Bank</field>
@@ -42,7 +42,7 @@
             <field name="model_name">account.bank.statement.line</field>
             <field
                 name="signal_definition"
-            >{"unreconciled_statement_lines": {\"model\": \"account.bank.statement.line\", \"domain\": [[\"is_reconciled\", \"=\", false]]}}</field>
+            >{"unreconciled_statement_lines": {"model": "account.bank.statement.line", "domain": [["is_reconciled", "=", false]]}}</field>
         </record>
     </data>
 </odoo>
