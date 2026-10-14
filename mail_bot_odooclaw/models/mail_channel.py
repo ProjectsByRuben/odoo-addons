@@ -220,7 +220,7 @@ class MailChannel(models.Model):
             # Revoke only this chat's capabilities; rollback restores them if
             # the agent is busy or the context purge cannot be acknowledged.
             self.env["mail.odooclaw.reply.token"].sudo().search([
-                ("model", "=", "mail.channel"), ("res_id", channel_id),
+                ("model", "=", "mail.channel"), ("res_id", "=", channel_id),
                 ("used", "=", False),
             ]).write({"used": True})
             # Standard unlink handles this channel's messages, notifications,
