@@ -102,7 +102,10 @@ class MailChannel(models.Model):
                    "<strong>Cómo usarlo</strong>.</p>"),
             message_type="comment", subtype_xmlid="mail.mt_comment",
         )
-        channel._broadcast([user.partner_id.id, bot.partner_id.id])
+        # Ensure channel is never pinned in the general Discuss sidebar
+        self.env["mail.channel.member"].sudo().search([
+            ("channel_id", "=", channel.id),
+        ]).write({"is_pinned": False})
         return channel.channel_info()[0]
 
     @api.model
@@ -142,6 +145,8 @@ class MailChannel(models.Model):
         partner = self.env.user.partner_id
         for info in infos:
             channel = self.browse(info["id"])
+            if channel.odooclaw_conversation:
+                info["is_pinned"] = False
             info["odooclawUsageEnabled"] = bool(
                 bot and not self.env.user.share and
                 partner in channel.channel_partner_ids and

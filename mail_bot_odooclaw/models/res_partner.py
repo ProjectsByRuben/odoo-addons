@@ -20,3 +20,10 @@ class ResPartner(models.Model):
         if not to_process:
             return
         return super(ResPartner, to_process)._compute_im_status()
+
+    def _get_channels_as_member(self):
+        channels = super()._get_channels_as_member()
+        # Hide OdooClaw private AI conversations from the main Discuss app
+        # so Discuss remains clean for internal human communication and
+        # users cannot view or delete other operators' AI chats through Discuss.
+        return channels.filtered(lambda c: not c.odooclaw_conversation)
