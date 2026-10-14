@@ -65,7 +65,7 @@ def _authorize():
     """
     secret = _get_service_secret()
     if secret:
-        token = request.headers.get("X-OdooClaw-Token", "")
+        token = request.httprequest.headers.get("X-OdooClaw-Token", "")
         if token == secret:
             return
     # Fallback to IP allowlist
