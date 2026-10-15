@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 Nicolás Ramos
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <data noupdate="0">
+        <record id="area_sales" model="mail.odooclaw.area">
+            <field name="name">Sales</field>
+            <field name="area">sales</field>
+            <field name="sequence">20</field>
+            <field name="enabled" eval="True" />
+            <field name="model_name">sale.order</field>
+            <field name="signal_definition">{"draft_quotations": {"model": "sale.order", "domain": [["state", "=", "draft"]]}, "stale_opportunities": {"model": "sale.order", "domain": [["state", "=", "draft"], ["date_order", "&lt;", "$today_minus_30_days"]]}}</field>
+        </record>
+    </data>
+</odoo>

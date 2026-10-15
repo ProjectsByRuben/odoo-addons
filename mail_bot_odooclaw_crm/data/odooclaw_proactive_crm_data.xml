@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 Nicolás Ramos
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo>
+    <data noupdate="0">
+        <record id="area_crm" model="mail.odooclaw.area">
+            <field name="name">CRM</field>
+            <field name="area">crm</field>
+            <field name="sequence">15</field>
+            <field name="enabled" eval="True" />
+            <field name="model_name">crm.lead</field>
+            <field name="signal_definition">{"stale_opportunities": {"model": "crm.lead", "domain": [["type", "=", "opportunity"], ["activity_date_deadline", "=", false]]}, "open_opportunities": {"model": "crm.lead", "domain": [["type", "=", "opportunity"], ["stage_id.is_won", "=", false]]}, "overdue_opportunities": {"model": "crm.lead", "domain": [["type", "=", "opportunity"], ["date_deadline", "&lt;", "$today"], ["stage_id.is_won", "=", false]]}}</field>
+        </record>
+    </data>
+</odoo>
