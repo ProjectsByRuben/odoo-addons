@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { registerPatch } from "@mail/model/model_core";
-import { attr, one } from "@mail/model/model_field";
+import { attr } from "@mail/model/model_field";
 import { clear } from "@mail/model/model_field_command";
 
 function forgetChannel(messaging, id) {
@@ -66,25 +66,14 @@ registerPatch({
             },
             default: false,
         }),
-        discussSidebarCategoryItem: one('DiscussSidebarCategoryItem', {
+        discussSidebarCategoryItem: {
             compute() {
-                // If it is an OdooClaw AI conversation, NEVER show it in the Discuss sidebar categories
                 if (this.odooclaw_conversation || (this.thread && this.thread.odooclaw_conversation)) {
                     return clear();
                 }
-                if (!this.thread) {
-                    return clear();
-                }
-                if (!this.thread.isPinned) {
-                    return clear();
-                }
-                if (!this.discussSidebarCategory) {
-                    return clear();
-                }
-                return { category: this.discussSidebarCategory };
+                return this._super();
             },
-            inverse: 'channel',
-        }),
+        },
     },
 });
 
