@@ -1,8 +1,8 @@
+# -*- coding: utf-8 -*-
 import logging
 import requests
-from odoo import api, fields, models, _
-from odoo.exceptions import AccessError, UserError
-from odoo.http import request
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError, AccessError
 
 _logger = logging.getLogger(__name__)
 
@@ -10,23 +10,28 @@ _logger = logging.getLogger(__name__)
 class MailChannel(models.Model):
     _inherit = "mail.channel"
 
-    odooclaw_conversation = fields.Boolean(copy=False, readonly=True)
-    odooclaw_employee_id = fields.Many2one("hr.employee", string="Operario OdooClaw", copy=False, index=True)
+    odooclaw_conversation = fields.Boolean(
+        string="Conversación de OdooClaw",
+        default=False,
+        index=True,
+        help="Marca los canales creados como conversaciones independientes con el asistente OdooClaw.",
+    )
+    odooclaw_employee_id = fields.Many2one(
+        "hr.employee",
+        string="Operario / Empleado",
+        index=True,
+        help="Operario identificado para esta conversación cuando se comparte el usuario de Odoo.",
+    )
 
-    @api.model
     def _odooclaw_conversation_user(self):
-        # A browser can only create/list conversations for its own session.
-        # In particular, the delegation service cannot impersonate a user here.
-        if request and request.session.uid != self.env.uid:
-            raise AccessError(_("Usa tu propia sesión de Odoo para abrir conversaciones."))
         user = self.env.user
-        if not user.active or user.share or user.id == 1:
-            raise AccessError(_("Esta opción requiere un usuario interno conectado."))
+        if not user.exists() or not user.active or user.share:
+            raise AccessError(_("Solo los usuarios internos pueden usar OdooClaw."))
         return user
 
     @api.model
     def odooclaw_get_available_employees(self):
-        """Return employees assigned to the current shared user's department."""
+        """Returns employees available for the current generic user (e.g. Almacén, Fábrica)."""
         user = self._odooclaw_conversation_user()
         login = (user.login or "").lower().strip()
 
@@ -139,6 +144,15 @@ class MailChannel(models.Model):
             ("channel_partner_ids", "in", [user.partner_id.id]),
         ]).ids
 
+    @api.returns('mail.message', lambda value: value.id)
+    def message_post(self, *, message_type='notification', **kwargs):
+        """Override to prevent auto-pinning OdooClaw conversations in Discuss when messages are posted."""
+        res = super().message_post(message_type=message_type, **kwargs)
+        odooclaw_channels = self.filtered(lambda c: c.odooclaw_conversation)
+        if odooclaw_channels:
+            odooclaw_channels.mapped('channel_member_ids').sudo().write({'is_pinned': False})
+        return res
+
     def channel_info(self):
         infos = super().channel_info()
         bot = self.env.ref("mail_bot_odooclaw.odooclaw_bot", raise_if_not_found=False)
@@ -147,6 +161,10 @@ class MailChannel(models.Model):
             channel = self.browse(info["id"])
             if channel.odooclaw_conversation:
                 info["is_pinned"] = False
+                info["odooclaw_conversation"] = True
+                if "channel" in info and isinstance(info["channel"], dict):
+                    info["channel"]["is_pinned"] = False
+                    info["channel"]["odooclaw_conversation"] = True
             info["odooclawUsageEnabled"] = bool(
                 bot and not self.env.user.share and
                 partner in channel.channel_partner_ids and

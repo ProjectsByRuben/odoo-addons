@@ -1,6 +1,8 @@
 /** @odoo-module **/
 
 import { registerPatch } from "@mail/model/model_core";
+import { attr, one } from "@mail/model/model_field";
+import { clear } from "@mail/model/model_field_command";
 
 function forgetChannel(messaging, id) {
     const thread = messaging.models["Thread"].findFromIdentifyingData({ model: "mail.channel", id });
@@ -19,7 +21,17 @@ function isGone(error) {
 
 registerPatch({
     name: "Thread",
+    fields: {
+        odooclaw_conversation: attr({ default: false }),
+    },
     modelMethods: {
+        convertData(data) {
+            const result = this._super(data);
+            if ("odooclaw_conversation" in data) {
+                result.odooclaw_conversation = Boolean(data.odooclaw_conversation);
+            }
+            return result;
+        },
         async performRpcChannelSeen({ id, lastMessageId }) {
             const original = this._super.bind(this);
             try {
@@ -42,6 +54,37 @@ registerPatch({
                 forgetChannel(this.messaging, id);
             }
         },
+    },
+});
+
+registerPatch({
+    name: "Channel",
+    fields: {
+        odooclaw_conversation: attr({
+            compute() {
+                return Boolean(this.thread && this.thread.odooclaw_conversation);
+            },
+            default: false,
+        }),
+        discussSidebarCategoryItem: one('DiscussSidebarCategoryItem', {
+            compute() {
+                // If it is an OdooClaw AI conversation, NEVER show it in the Discuss sidebar categories
+                if (this.odooclaw_conversation || (this.thread && this.thread.odooclaw_conversation)) {
+                    return clear();
+                }
+                if (!this.thread) {
+                    return clear();
+                }
+                if (!this.thread.isPinned) {
+                    return clear();
+                }
+                if (!this.discussSidebarCategory) {
+                    return clear();
+                }
+                return { category: this.discussSidebarCategory };
+            },
+            inverse: 'channel',
+        }),
     },
 });
 
