@@ -5,7 +5,7 @@ Lee también el AGENTS.md del proyecto Doodba y scripts/odooclaw/WORKTREES.rst.
 
 ## Carpeta de trabajo
 
-- Trabajo actual: `/home/rubenfernandez/CMP/worktrees/doodba-cmp/odooclaw-app-operarios/odoo/custom/src/odooclaw-addons`.
+- Trabajo actual: `/home/rubenfernandez/CMP/doodba-cmp/odoo/custom/worktrees/odooclaw-app-operarios/odoo/custom/src/odooclaw-addons`.
 - Rama de tarea: `feature/odooclaw-app-operarios`.
 - La carpeta equivalente dentro de `/home/rubenfernandez/CMP/doodba-cmp` es estable
   y está en `16.0`; la instalación actual lee de ella.
