@@ -3,17 +3,18 @@
 Estas instrucciones son para agentes que modifican el código del addon.
 Lee también el AGENTS.md del proyecto Doodba y scripts/odooclaw/WORKTREES.rst.
 
-## Carpeta de trabajo
+## Estado actual y carpeta estable
 
-- Trabajo actual: `/home/rubenfernandez/CMP/doodba-cmp/odoo/custom/worktrees/odooclaw/desarrollo/odoo/custom/src/odooclaw-addons`.
-- Rama de tarea: `feature/desarrollo`.
-- La carpeta equivalente dentro de `/home/rubenfernandez/CMP/doodba-cmp` es estable
-  y está en `16.0`; la instalación actual lee de ella.
+Trabaja con el repositorio de `/home/rubenfernandez/CMP/doodba-cmp/odoo/custom/src/odooclaw-addons`,
+rama estable `16.0`. No hay rama de desarrollo ni worktree activo de OdooClaw.
+Los cambios anteriores están integrados. Rubén indicará la próxima tarea.
 
-Comprueba `git status --short`, `git branch --show-current` y `git worktree list`.
-Si arrancas en la base estable para una modificación, cambia el directorio de tus
-herramientas al worktree de la tarea. No cambies la rama de la base ni muevas .git.
-Este componente tiene su propio Git; el workspace común no lo fusiona con Doodba.
+Antes de actuar, comprueba `git status --short`, `git branch --show-current` y
+`git worktree list`. No crees ramas ni worktrees por anticipado. La aplicación
+propia y el PIN siguen pendientes: no los implementes por leer estas instrucciones.
+Cuando se autorice una modificación, prepara entonces un worktree de tarea bajo
+odoo/custom/worktrees/odooclaw/<tema>, con la rama feature/<tema> o fix/<tema>.
+No muevas .git ni unifiques repositorios. El entorno en uso lee la carpeta estable.
 
 ## Archivos principales
 
