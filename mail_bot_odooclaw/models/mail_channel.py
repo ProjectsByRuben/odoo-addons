@@ -3,6 +3,7 @@ import logging
 import requests
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError, AccessError
+from markupsafe import Markup
 
 _logger = logging.getLogger(__name__)
 
@@ -29,42 +30,50 @@ class MailChannel(models.Model):
             raise AccessError(_("Solo los usuarios internos pueden usar OdooClaw."))
         return user
 
+    def _odooclaw_employee_domain(self):
+        """Department scope is selected by the account, never by RPC arguments."""
+        user = self._odooclaw_conversation_user()
+        departments = {
+            "almacen": ["ALMACEN"],
+            "fabrica": ["PRODUCCION", "MONTAJE", "SOLDADURA Y PREPARACION",
+                        "CORTE Y PREPARACION", "CONFORMADO", "PINTURA Y PREPARACION",
+                        "REPASADO MANUAL", "FRESADO Y PREPARACION"],
+            "calidad": ["CALIDAD"], "logistica": ["LOGISTICA"],
+            "otecnica": ["OT", "DELINEACION"], "delineacion": ["OT", "DELINEACION"],
+        }
+        login = (user.login or "").lower().strip()
+        names = departments.get("fabrica" if login in ("produccion", "cproduccion") else login)
+        if names is None:
+            return None
+        return [("active", "=", True), ("department_id.name", "in", names),
+                ("company_id", "in", self.env.companies.ids)]
+
     @api.model
     def odooclaw_get_available_employees(self):
-        """Returns employees available for the current generic user (e.g. Almacén, Fábrica)."""
-        user = self._odooclaw_conversation_user()
-        login = (user.login or "").lower().strip()
-
-        dept_domain = []
-        if login == "almacen":
-            dept_domain = [("name", "ilike", "ALMACEN")]
-        elif login in ("fabrica", "produccion", "cproduccion"):
-            dept_domain = [("name", "in", [
-                "PRODUCCION", "MONTAJE", "SOLDADURA Y PREPARACION",
-                "CORTE Y PREPARACION", "CONFORMADO", "PINTURA Y PREPARACION",
-                "REPASADO MANUAL", "FRESADO Y PREPARACION"
-            ])]
-        elif login == "calidad":
-            dept_domain = [("name", "ilike", "CALIDAD")]
-        elif login == "logistica":
-            dept_domain = [("name", "ilike", "LOGISTICA")]
-        elif login in ("otecnica", "delineacion"):
-            dept_domain = [("name", "in", ["OT", "DELINEACION"])]
-        else:
-            # Individual user (admin, named office users) -> No employee selector needed
+        domain = self._odooclaw_employee_domain()
+        if domain is None:
             return []
+        # Shared accounts need names for this selector, never private HR fields.
+        employees = self.env["hr.employee"].sudo().search(domain, order="name, id")
+        return [{"id": employee.id, "name": employee.name} for employee in employees]
 
-        depts = self.env["hr.department"].sudo().search(dept_domain)
-        if not depts:
-            return []
+    @api.model
+    def odooclaw_employee_selector(self):
+        return {"required": self._odooclaw_employee_domain() is not None,
+                "employees": self.odooclaw_get_available_employees()}
 
-        employees = self.env["hr.employee"].sudo().search_read(
-            [("department_id", "in", depts.ids), ("active", "=", True)],
-            ["id", "name"],
-            order="name asc",
-            limit=150
-        )
-        return employees
+    def _odooclaw_selected_employee(self, employee_id, required=False):
+        domain = self._odooclaw_employee_domain()
+        if employee_id is None or employee_id is False:
+            if required and domain is not None:
+                raise UserError(_("Selecciona tu nombre de operario antes de abrir una conversación."))
+            return self.env["hr.employee"]
+        if type(employee_id) is not int or employee_id <= 0 or domain is None:
+            raise UserError(_("Operario no válido para esta cuenta."))
+        employee = self.env["hr.employee"].sudo().search(domain + [("id", "=", employee_id)], limit=1)
+        if not employee:
+            raise AccessError(_("El operario no pertenece a los departamentos y compañías permitidos."))
+        return employee
 
     @api.model
     def odooclaw_new_conversation(self, employee_id=None):
@@ -74,14 +83,7 @@ class MailChannel(models.Model):
             raise UserError(_("OdooClaw no está disponible. Contacta con informática."))
         stamp = fields.Datetime.context_timestamp(self, fields.Datetime.now())
 
-        employee = None
-        if employee_id:
-            try:
-                emp_rec = self.env["hr.employee"].sudo().browse(int(employee_id))
-                if emp_rec.exists():
-                    employee = emp_rec
-            except (ValueError, TypeError):
-                employee = None
+        employee = self._odooclaw_selected_employee(employee_id, required=True)
 
         prefix = f"OdooClaw [{employee.name}]" if employee else "OdooClaw"
         channel = self.create({
@@ -99,12 +101,12 @@ class MailChannel(models.Model):
             "Conversación nueva con OdooClaw."
         )
         channel.with_user(bot).message_post(
-            body=_(f"<p><strong>{welcome_title}</strong></p>"
+            body=Markup("<p><strong>%s</strong></p>") % welcome_title + Markup(_(""
                    "<p>Escribe tu solicitud aquí. Esta conversación empieza sin el contexto "
                    "de tus chats anteriores y utiliza los permisos de tu usuario actual.</p>"
                    "<p>Para abrir otra o volver a las anteriores, usa el menú "
                    "<strong>OdooClaw</strong> de la barra superior. Allí encontrarás "
-                   "<strong>Cómo usarlo</strong>.</p>"),
+                   "<strong>Cómo usarlo</strong>.</p>")),
             message_type="comment", subtype_xmlid="mail.mt_comment",
         )
         # Ensure channel is never pinned in the general Discuss sidebar
@@ -124,25 +126,51 @@ class MailChannel(models.Model):
             ("channel_partner_ids", "in", [bot.partner_id.id]),
             "|", ("odooclaw_conversation", "=", True), ("channel_type", "=", "chat"),
         ]
-        if employee_id:
-            try:
-                domain.append(("odooclaw_employee_id", "=", int(employee_id)))
-            except (ValueError, TypeError):
-                pass
+        employee = self._odooclaw_selected_employee(employee_id)
+        if self._odooclaw_employee_domain() is not None:
+            if not employee:
+                return []
+            domain.append(("odooclaw_employee_id", "=", employee.id))
         return self.search_read(domain, ["name", "odooclaw_employee_id"], order="id desc", limit=30)
 
+    def odooclaw_open_conversation(self, employee_id=None):
+        """Validate the tab's employee without changing shared account state."""
+        self.ensure_one()
+        user = self._odooclaw_conversation_user()
+        self.check_access_rights("read")
+        self.check_access_rule("read")
+        bot = self.env.ref("mail_bot_odooclaw.odooclaw_bot", raise_if_not_found=False)
+        if (not self.exists() or not bot or
+                not (self.odooclaw_conversation or self.channel_type == "chat") or
+                user.partner_id not in self.channel_partner_ids or
+                bot.partner_id not in self.channel_partner_ids):
+            raise AccessError(_("Esta conversación no está disponible."))
+        employee = self._odooclaw_selected_employee(employee_id, required=True)
+        if self._odooclaw_employee_domain() is not None and self.odooclaw_employee_id != employee:
+            raise AccessError(_("Esta conversación pertenece a otro operario. Selecciona su nombre para abrirla."))
+        return self.channel_info()[0]
+
     @api.model
-    def odooclaw_accessible_channel_ids(self, channel_ids):
+    def odooclaw_accessible_channel_ids(self, channel_ids, odooclaw_only=False):
         """Reconcile browser windows using only the current user's membership."""
         user = self._odooclaw_conversation_user()
         if not isinstance(channel_ids, list) or len(channel_ids) > 200:
             raise UserError(_("Lista de conversaciones no válida."))
         if any(type(channel_id) is not int or channel_id <= 0 for channel_id in channel_ids):
             raise UserError(_("Identificador de conversación no válido."))
-        return self.search([
+        domain = [
             ("id", "in", channel_ids),
             ("channel_partner_ids", "in", [user.partner_id.id]),
-        ]).ids
+        ]
+        if odooclaw_only:
+            bot = self.env.ref("mail_bot_odooclaw.odooclaw_bot", raise_if_not_found=False)
+            if not bot:
+                return []
+            domain += [
+                ("channel_partner_ids", "in", [bot.partner_id.id]),
+                "|", ("odooclaw_conversation", "=", True), ("channel_type", "=", "chat"),
+            ]
+        return self.search(domain).ids
 
     @api.returns('mail.message', lambda value: value.id)
     def message_post(self, *, message_type='notification', **kwargs):

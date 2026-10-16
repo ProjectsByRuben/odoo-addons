@@ -20,9 +20,54 @@ function isGone(error) {
 }
 
 registerPatch({
+    name: "Message",
+    modelMethods: {
+        async performRpcMessageFetch(route, params) {
+            const original = this._super.bind(this);
+            try {
+                return await original(route, params);
+            } catch (error) {
+                // Duplicated tabs/old Discuss URLs can retain channels deleted
+                // or no longer accessible to the current account. Keep the
+                // server's membership check; discard only the stale local view.
+                if (route !== "/mail/channel/messages" || !params.channel_id || !isGone(error)) {
+                    throw error;
+                }
+                forgetChannel(this.messaging, params.channel_id);
+                return [];
+            }
+        },
+    },
+});
+
+registerPatch({
     name: "Thread",
     fields: {
         odooclaw_conversation: attr({ default: false }),
+    },
+    recordMethods: {
+        async notifyFoldStateToServer(state) {
+            // An Odoo account may be shared across operators and devices.
+            // Their AI windows are local; native human chats still synchronize.
+            if (this.odooclaw_conversation) {
+                return;
+            }
+            return this._super(state);
+        },
+        _onServerFoldStateChanged() {
+            // Ignore legacy/open-in-another-tab events, including remote closes
+            // and minimizations of a window that is already open here.
+            if (this.odooclaw_conversation) {
+                return;
+            }
+            return this._super();
+        },
+        async pin() {
+            if (this.odooclaw_conversation) {
+                return;
+            }
+            return this._super();
+        },
     },
     modelMethods: {
         convertData(data) {
@@ -80,10 +125,43 @@ registerPatch({
 registerPatch({
     name: "MessagingNotificationHandler",
     recordMethods: {
+        async _handleNotificationChannelMessage(payload) {
+            const original = this._super.bind(this);
+            let channel = this.messaging.models["Channel"].findFromIdentifyingData({ id: payload.id });
+            if ((!channel || !channel.channel_type) && !this.messaging.isCurrentUserGuest) {
+                const data = await this.messaging.models["Thread"].performRpcChannelInfo({ ids: [payload.id] });
+                if (!this.exists()) {
+                    return;
+                }
+                channel = data[0] && data[0].channel;
+            }
+            if (channel && channel.thread && channel.thread.odooclaw_conversation) {
+                const Message = this.messaging.models["Message"];
+                const message = Message.insert(Message.convertData(payload.message));
+                this._notifyThreadViewsMessageReceived(message);
+                return;
+            }
+            return original(payload);
+        },
         async _handleNotificationChannelDelete({ id }) {
             const original = this._super.bind(this);
             forgetChannel(this.messaging, id);
             return original({ id });
+        },
+    },
+});
+
+// Only an explicit action in this tab may open an AI window. Window state
+// stays local even when the same account is used in other tabs or devices.
+registerPatch({
+    name: "ChatWindowManager",
+    recordMethods: {
+        openThread(thread, options = {}) {
+            if (thread.odooclaw_conversation && !thread.chatWindow && !options.odooclawExplicit) {
+                return;
+            }
+            return this._super(thread, thread.odooclaw_conversation
+                ? { ...options, notifyServer: false } : options);
         },
     },
 });
