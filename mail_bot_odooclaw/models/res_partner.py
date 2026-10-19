@@ -26,4 +26,6 @@ class ResPartner(models.Model):
         # Hide OdooClaw private AI conversations from the main Discuss app
         # so Discuss remains clean for internal human communication and
         # users cannot view or delete other operators' AI chats through Discuss.
-        return channels.filtered(lambda c: not c.odooclaw_conversation)
+        return self.env["mail.channel"].search([
+            ("id", "in", channels.ids), ("odooclaw_conversation", "=", False),
+        ])

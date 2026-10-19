@@ -80,6 +80,7 @@ class OdooClawController(http.Controller):
             if not bot_user:
                 return security.error_response("OdooClaw bot user not found")
 
+            token_valid = token_valid.with_user(bot_user).sudo()
             message_html = markdown_to_safe_html(message_body)
             if not progress:
                 message_html = Markup(message_html) + token_usage_footer(payload.get("token_usage"))
@@ -244,6 +245,11 @@ class OdooClawController(http.Controller):
             # Native one2many commands use that origin for child mutations, so
             # construct a fresh environment bound entirely to the human user.
             safe_env = api.Environment(request.env.cr, user_id, merged_context, su=False, uid_origin=user_id)
+            scope_provider = getattr(safe_env["mail.channel"], "_odooclaw_app_delegated_scope", None)
+            app_scope = scope_provider(capability) if scope_provider else {}
+            if app_scope:
+                merged_context.update(app_scope)
+                safe_env = api.Environment(request.env.cr, user_id, merged_context, su=False, uid_origin=user_id)
 
             try:
                 recs = safe_env[model]
@@ -289,6 +295,8 @@ class OdooClawController(http.Controller):
                             result = result.ids[0]
                         else:
                             result = result.ids
+                    if app_scope:
+                        result = safe_env["mail.channel"]._odooclaw_app_clean_result(result)
                     return request.make_json_response({"status": "ok", "result": result})
             except AccessError:
                 return security.error_response(

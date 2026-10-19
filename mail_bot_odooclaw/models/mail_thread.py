@@ -240,7 +240,9 @@ class MailThread(models.AbstractModel):
                 except Exception:
                     _logger.exception("Failed to send webhook to OdooClaw")
 
-            threading.Thread(target=send_webhook).start()
+            # Publish only after the message and its capability are committed.
+            # A rollback/retry must not dispatch a second business operation.
+            self.env.cr.postcommit.add(threading.Thread(target=send_webhook).start)
 
             # Trigger "typing..." indicator if it's a mail channel
             if message.model == "mail.channel":

@@ -3,20 +3,29 @@
 Estas instrucciones son para agentes que modifican el código del addon.
 Lee también el AGENTS.md del proyecto Doodba y scripts/odooclaw/WORKTREES.rst.
 
-## Tarea actual y worktree
+## Estado estable
 
-Trabajo: `/home/rubenfernandez/CMP/doodba-cmp/odoo/custom/worktrees/odooclaw/app-propia/odoo/custom/src/odooclaw-addons`.
-Rama: `feature/odooclaw-app-propia`. Está preparado para desarrollar la aplicación
-propia de OdooClaw; todavía no hay implementación funcional nueva.
+Código integrado en `/home/rubenfernandez/CMP/doodba-cmp/odoo/custom/src/odooclaw-addons`,
+rama `16.0`. La instancia cmpslu utiliza esta carpeta estable; no queda worktree
+activo de OdooClaw. No crear ramas ni comenzar tareas hasta que Rubén lo indique.
+Para una nueva modificación, preparar una rama feature/<tema> o fix/<tema> y un
+worktree bajo odoo/custom/worktrees/odooclaw/<tema>, conservando este repositorio.
+Comprobar status, branch y worktree list antes de actuar. No desarrollar en estable.
 
-La base que utiliza la instalación sigue en
-`/home/rubenfernandez/CMP/doodba-cmp/odoo/custom/src/odooclaw-addons`, rama `16.0`.
-Comprueba git status --short, git branch --show-current y git worktree list antes
-de editar y utiliza el directorio del worktree. No modifiques la base para probar.
-No se ha preparado otra instancia Odoo ni se ha autorizado desplegar esta tarea.
-Conserva el Git del addon y las reglas de permisos. El PIN sigue pendiente.
+El módulo `odooclaw_app` integra pantalla completa y flotante, historial, adjuntos,
+progreso, tokens y perfiles independientes entre pestañas. Las cuentas compartidas
+verifican el PIN nativo del empleado: vacío permite alta inicial confirmada por el
+operario (4 a 8 dígitos), nunca sobrescritura de un PIN existente. Un responsable
+restablece los olvidados con permisos nativos de RRHH. Cuentas personales sin PIN
+adicional. Las operaciones de negocio conservan UID, ACL, reglas y compañías.
+La app está instalada en cmpslu; no crear bases alternativas para esta tarea.
 
 ## Archivos principales
+
+La interfaz activa está en `odooclaw_app/static/src/workspace*`; sus controladores
+en `odooclaw_app/controllers/workspace.py` y la seguridad/perfil/conversaciones en
+`odooclaw_app/models/`. Leer su README.rst. Los archivos conversations.js/xml del
+puente son históricos y esta app los retira de los assets.
 
 - `mail_bot_odooclaw/models/mail_channel.py`: selección/validación de operarios,
   creación, listado, apertura y borrado de conversaciones, metadatos de canales.
@@ -32,14 +41,16 @@ Conserva el Git del addon y las reglas de permisos. El PIN sigue pendiente.
 
 ## Reglas de la tarea
 
-La aplicación propia todavía está pendiente. Primero investiga el acceso nativo
-al bot desde Discuss y la identidad efectiva de la petición. La interfaz no es
+La aplicación propia protege APIs, ORM y difusión por bus. El acceso nativo al
+bot desde Discuss se rechaza; no desactivar `odooclaw.app.enforce=1`. La interfaz no es
 una barrera de autorización: valida en servidor pertenencia al canal y operario.
 No concedas permisos de negocio con sudo para resolver un rechazo. Conserva las
 ACL, reglas y compañías del usuario Odoo que envía cada solicitud.
 
-El selector actual no tiene PIN. Un operario seleccionado no equivale a una
-identidad autenticada. El PIN solicitado debe diseñarse de forma explícita.
+El selector se completa con `hr.employee.pin` en servidor: cinco fallos bloquean
+cinco minutos; perfiles de ocho horas ligados a UID, sesión y compañías. Un PIN
+vacío requiere alta inicial confirmada (4–8 dígitos). No configurar PIN reales ni
+usuarios adicionales para una prueba.
 La apertura/cierre de ventanas de un operario no debe afectar a otros terminales.
 
 Las pruebas de selector/lifecycle y los scripts de pruebas Odoo están en el

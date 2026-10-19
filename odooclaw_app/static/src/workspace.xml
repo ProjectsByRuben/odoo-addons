@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t t-name="odooclaw_app.Launcher" owl="1">
+        <div class="o_odooclaw_launcher">
+            <button
+        class="btn border-0 text-reset"
+        title="Abrir la ventana de OdooClaw"
+        aria-label="Abrir la ventana de OdooClaw"
+        t-on-click="() => workspace.openFloating()"
+      >
+                <i class="fa fa-commenting-o me-1" aria-hidden="true" />
+                <span>OdooClaw</span>
+                <span
+          t-if="state.profile and state.required"
+          class="badge bg-light text-dark ms-1"
+          t-att-title="state.profile.name"
+          t-esc="state.profile.name.split(' ')[0]"
+        />
+            </button>
+        </div>
+    </t>
+    <t t-name="odooclaw_app.Action" owl="1">
+        <Workspace />
+    </t>
+    <t t-name="odooclaw_app.Floating" owl="1">
+        <t t-if="state.floating">
+            <Workspace floating="true" />
+        </t>
+    </t>
+    <t t-name="odooclaw_app.Rename" owl="1">
+        <Dialog title="'Renombrar conversación'" size="'sm'">
+            <form t-on-submit="save"><label
+          for="oc_rename"
+        >Nombre de la conversación</label><input
+          id="oc_rename"
+          class="form-control mt-2"
+          t-model="state.name"
+          maxlength="160"
+          required="required"
+        /><button
+          class="btn btn-primary mt-3"
+          type="submit"
+          t-att-disabled="!state.name.trim() or state.busy"
+        >Guardar</button></form>
+            <t t-set-slot="footer"><button
+          class="btn btn-secondary"
+          t-on-click="props.close"
+        >Cerrar</button></t>
+        </Dialog>
+    </t>
+    <t t-name="odooclaw_app.Workspace" owl="1">
+        <section
+      class="o_odooclaw_workspace"
+      t-att-class="{ 'is-floating': props.floating, 'is-minimized': props.floating &amp;&amp; state.minimized, 'sidebar-visible': view.sidebar }"
+      aria-label="OdooClaw"
+    >
+            <header class="oc-header">
+                <div class="oc-heading"><span class="oc-mark"><i
+              class="fa fa-bolt"
+              aria-hidden="true"
+            /></span><strong>OdooClaw</strong><span
+            t-if="state.profile and state.required"
+            class="oc-operator-badge"
+            t-att-title="state.profile.name"
+            t-esc="state.profile.name"
+          /></div>
+                <div class="oc-controls">
+                    <button
+            t-if="!state.minimized"
+            class="btn oc-icon"
+            title="Mostrar conversaciones"
+            aria-label="Mostrar conversaciones"
+            t-on-click="() => view.sidebar = !view.sidebar"
+          ><i class="fa fa-columns" aria-hidden="true" /></button>
+                    <t t-if="props.floating">
+                        <button
+              class="btn oc-icon"
+              title="Abrir la aplicación"
+              aria-label="Abrir la aplicación"
+              t-on-click="() => workspace.openApp()"
+            ><i class="fa fa-expand" aria-hidden="true" /></button>
+                        <button
+              class="btn oc-icon"
+              t-att-title="state.minimized ? 'Restaurar' : 'Minimizar'"
+              t-att-aria-label="state.minimized ? 'Restaurar' : 'Minimizar'"
+              t-on-click="() => workspace.toggleMinimized()"
+            ><i
+                t-att-class="state.minimized ? 'fa fa-window-restore' : 'fa fa-minus'"
+                aria-hidden="true"
+              /></button>
+                        <button
+              class="btn oc-icon"
+              title="Cerrar la ventana"
+              aria-label="Cerrar la ventana"
+              t-on-click="() => workspace.closeFloating()"
+            ><i class="fa fa-times" aria-hidden="true" /></button>
+                    </t>
+                    <button
+            t-else=""
+            class="btn oc-icon"
+            title="Abrir ventana flotante"
+            aria-label="Abrir ventana flotante"
+            t-on-click="() => workspace.openFloating()"
+          ><i class="fa fa-external-link" aria-hidden="true" /></button>
+                </div>
+            </header>
+            <div class="oc-body" t-if="!props.floating || !state.minimized">
+                <aside class="oc-sidebar" aria-label="Conversaciones">
+                    <button
+            class="btn oc-new"
+            t-att-disabled="!state.profile or state.loadingMessages or state.sending"
+            t-on-click="() => workspace.newConversation()"
+          ><i class="fa fa-plus me-2" aria-hidden="true" />Nueva conversación</button>
+                    <div t-if="state.required" class="oc-profile-selector">
+                        <label
+              t-att-for="props.floating ? 'oc_employee_float' : 'oc_employee_full'"
+            >Operario actual</label>
+                        <select
+              t-att-id="props.floating ? 'oc_employee_float' : 'oc_employee_full'"
+              class="form-select"
+              t-att-value="state.employeeId"
+              t-on-change="onEmployeeChange"
+            >
+                            <option value="">Selecciona tu nombre</option>
+                            <t
+                t-foreach="state.employees"
+                t-as="employee"
+                t-key="employee.id"
+              >
+                                <option
+                  t-att-value="employee.id"
+                  t-att-selected="employee.id === state.employeeId"
+                  t-esc="employee.name"
+                />
+                            </t>
+                        </select>
+                    </div>
+                    <button
+            t-if="state.profile and state.required"
+            class="btn btn-link"
+            t-on-click="() => workspace.lock()"
+          ><i class="fa fa-lock me-2" />Bloquear perfil</button>
+                    <div class="oc-sidebar-title">Tus conversaciones</div>
+                    <p t-if="!state.conversations.length" class="oc-sidebar-empty"><t
+              t-if="state.profile"
+            >Todavía no hay conversaciones.</t><t
+              t-else=""
+            >Desbloquea tu perfil para ver tu historial.</t></p>
+                    <div class="oc-conversations">
+                        <t
+              t-foreach="state.conversations"
+              t-as="conversation"
+              t-key="conversation.id"
+            >
+                            <div class="oc-conversation-row">
+                                <button
+                  class="btn oc-conversation"
+                  t-att-class="{'active': conversation.id === state.activeId}"
+                  t-on-click="() => this.openConversation(conversation.id)"
+                ><i class="fa fa-comment-o me-2" /><t
+                    t-esc="conversation.name"
+                  /></button>
+                                <button
+                  class="btn oc-icon oc-row-action"
+                  title="Renombrar conversación"
+                  aria-label="Renombrar conversación"
+                  t-on-click="() => this.rename(conversation)"
+                ><i class="fa fa-pencil" /></button>
+                                <button
+                  class="btn oc-icon oc-row-action"
+                  title="Borrar conversación"
+                  aria-label="Borrar conversación"
+                  t-on-click="() => this.deleteConversation(conversation)"
+                ><i class="fa fa-trash-o" /></button>
+                            </div>
+                        </t>
+                    </div>
+                    <div class="oc-account"><i
+              class="fa fa-user-circle-o"
+              aria-hidden="true"
+            /><div><strong t-esc="user.name" /><small
+              >Permisos de tu cuenta de Odoo</small></div></div>
+                </aside>
+                <main class="oc-chat">
+                    <div t-if="!state.activeId" class="oc-welcome">
+                        <span class="oc-welcome-mark"><i
+                class="fa fa-bolt"
+                aria-hidden="true"
+              /></span>
+                        <h2>Tu espacio de trabajo con IA</h2>
+                        <p
+            >Conversaciones, documentos y tareas de Odoo en un mismo lugar.</p>
+                        <div t-if="state.profile" class="oc-lock"><i
+                class="fa fa-check-circle"
+              /><div><strong>Hola, <t t-esc="state.profile.name" /></strong><span
+                >Abre una conversación del historial o empieza una nueva.</span></div></div>
+                        <form
+              t-elif="state.required"
+              class="oc-unlock"
+              t-on-submit="unlock"
+            >
+                            <label
+                class="form-label"
+                t-att-for="props.floating ? 'oc_pin_float' : 'oc_pin_full'"
+              ><t t-if="state.pinSetup">Crea tu PIN de operario</t><t
+                  t-else=""
+                >Desbloquea tu perfil con el PIN</t></label>
+                            <input
+                t-att-id="props.floating ? 'oc_pin_float' : 'oc_pin_full'"
+                class="form-control"
+                type="password"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="32"
+                t-model="view.pin"
+                t-att-disabled="!state.employeeId or state.pinBusy"
+                placeholder="PIN de empleado"
+              />
+                            <label
+                t-if="state.pinSetup"
+                class="form-label mt-2"
+                t-att-for="props.floating ? 'oc_pin_confirm_float' : 'oc_pin_confirm_full'"
+              >Confirma tu PIN</label>
+                            <input
+                t-if="state.pinSetup"
+                t-att-id="props.floating ? 'oc_pin_confirm_float' : 'oc_pin_confirm_full'"
+                class="form-control"
+                type="password"
+                inputmode="numeric"
+                autocomplete="new-password"
+                maxlength="8"
+                t-model="view.confirmation"
+                t-att-disabled="!state.employeeId or state.pinBusy"
+                placeholder="Repite el nuevo PIN"
+              />
+                            <button
+                class="btn btn-primary mt-3"
+                type="submit"
+                t-att-disabled="!state.employeeId or !view.pin or (state.pinSetup and !view.confirmation) or state.pinBusy"
+              ><t t-if="state.pinBusy">Comprobando…</t><t t-else=""><t
+                    t-if="state.pinSetup"
+                  >Guardar PIN y entrar</t><t t-else="">Desbloquear</t></t></button>
+                            <small><t
+                  t-if="state.pinSetup"
+                >Primera vez: elige de 4 a 8 números. El PIN quedará guardado para tus próximos accesos.</t><t
+                  t-else=""
+                >Usa el PIN que guardaste. Si lo has olvidado, pide a un responsable que lo restablezca.</t></small>
+                        </form>
+                        <div
+              t-if="state.error"
+              class="alert alert-warning mt-3"
+              role="alert"
+              t-esc="state.error"
+            />
+                    </div>
+                    <div t-if="state.activeId" class="oc-history" t-ref="history">
+                        <div class="oc-chat-title" t-esc="state.activeName" />
+                        <button
+              t-if="state.hasMore"
+              class="btn btn-link"
+              t-on-click="() => workspace.loadMessages(true)"
+            >Cargar mensajes anteriores</button>
+                        <t t-foreach="state.messages" t-as="message" t-key="message.id">
+                            <article
+                class="oc-message"
+                t-att-class="{'is-user': !message.bot}"
+              >
+                                <div class="oc-message-author"><i
+                    t-att-class="message.bot ? 'fa fa-bolt' : 'fa fa-user-o'"
+                  /><strong t-esc="message.author" /><time t-esc="message.date" /></div>
+                                <div
+                  class="oc-message-body"
+                  t-out="html(message.body)"
+                />
+                                <div
+                  t-if="message.attachments.length"
+                  class="oc-message-attachments"
+                ><t
+                    t-foreach="message.attachments"
+                    t-as="attachment"
+                    t-key="attachment.id"
+                  ><button
+                      class="btn btn-sm btn-light"
+                      t-on-click="() => workspace.download(attachment)"
+                    ><i class="fa fa-paperclip me-1" /><t
+                        t-esc="attachment.name"
+                      /></button></t></div>
+                            </article>
+                        </t>
+                        <span
+              t-if="state.loadingMessages"
+              class="text-muted"
+            >Cargando…</span>
+                        <div
+              t-if="state.error"
+              class="alert alert-warning"
+              role="alert"
+              t-esc="state.error"
+            />
+                    </div>
+                    <footer class="oc-composer">
+                        <div class="oc-pending-files"><t
+                t-foreach="state.attachments"
+                t-as="attachment"
+                t-key="attachment.id"
+              ><button
+                  class="btn btn-sm btn-light"
+                  t-on-click="() => this.removeAttachment(attachment.id)"
+                ><i class="fa fa-paperclip me-1" /><t t-esc="attachment.name" /><i
+                    class="fa fa-times ms-2"
+                  /></button></t></div>
+                        <label class="btn btn-sm btn-light oc-upload"><i
+                class="fa fa-paperclip me-1"
+              /><t t-if="state.uploading">Adjuntando…</t><t
+                t-else=""
+              >Adjuntar archivo</t><input
+                type="file"
+                multiple="multiple"
+                class="d-none"
+                t-on-change="upload"
+                t-att-disabled="!state.profile or !state.activeId or state.uploading or state.sending"
+              /></label>
+                        <form class="oc-input" t-on-submit="send">
+                            <textarea
+                class="form-control"
+                t-model="state.draft"
+                rows="2"
+                maxlength="64000"
+                placeholder="Escribe a OdooClaw…"
+                t-att-disabled="!state.profile or !state.activeId or state.sending"
+                aria-label="Mensaje a OdooClaw"
+                t-on-keydown="onComposerKeydown"
+              />
+                            <button
+                class="btn"
+                type="submit"
+                t-att-disabled="!state.profile or !state.activeId or !(state.draft.trim() or state.attachments.length) or state.sending or state.uploading"
+                aria-label="Enviar mensaje"
+              ><i
+                  t-att-class="state.sending ? 'fa fa-spinner fa-spin' : 'fa fa-arrow-up'"
+                /></button>
+                        </form>
+                        <div
+              t-if="state.usage and state.usage.available"
+              class="oc-quota"
+              title="Uso restante de la cuenta compartida del modelo"
+            ><t
+                t-foreach="state.usage.windows"
+                t-as="quota"
+                t-key="quota.duration_minutes"
+              ><span class="badge bg-light text-dark"><t
+                    t-esc="usageLabel(quota)"
+                  /> · <t t-esc="Math.floor(quota.remaining)" /> %</span></t></div>
+                        <small
+            >Las acciones se ejecutan con los permisos de tu usuario de Odoo.</small>
+                    </footer>
+                </main>
+            </div>
+        </section>
+    </t>
+</templates>
