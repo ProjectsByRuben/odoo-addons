@@ -1,6 +1,6 @@
 {
     "name": "OdooClaw",
-    "version": "16.0.1.0.0",
+    "version": "16.0.1.1.0",
     "summary": "Dedicated workspace for OdooClaw conversations",
     "category": "Productivity",
     "author": "ProjectsByRuben",

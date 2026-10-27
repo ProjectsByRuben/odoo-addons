@@ -81,21 +81,26 @@ class TestProfile(TransactionCase):
         self.assertTrue(self.unlock("0427")["ok"])
 
     def test_pin_setup_validates_confirmation_format_and_employee_scope(self):
-        for pin, confirmation in [("123", "123"), ("123456789", "123456789"),
-                                  ("abcd", "abcd"), ("１２３４", "１２３４"),
-                                  ("1234", "5678"), (None, None)]:
-            self.assertFalse(self.channel._odooclaw_app_setup_pin(
-                self.employee.id, pin, confirmation, self.session
-            )["ok"])
+        for pin, confirmation in [
+            ("123", "123"),
+            ("123456789", "123456789"),
+            ("abcd", "abcd"),
+            ("１２３４", "１２３４"),
+            ("1234", "5678"),
+            (None, None),
+        ]:
+            self.assertFalse(
+                self.channel._odooclaw_app_setup_pin(
+                    self.employee.id, pin, confirmation, self.session
+                )["ok"]
+            )
             self.assertFalse(self.employee.pin)
         with self.assertRaises(AccessError):
             self.channel._odooclaw_app_setup_pin(
                 self.other_employee.id, "1234", "1234", self.session
             )
         with self.assertRaises(AccessError):
-            self.channel._odooclaw_app_setup_pin(
-                self.employee.id, "1234", "1234", {}
-            )
+            self.channel._odooclaw_app_setup_pin(self.employee.id, "1234", "1234", {})
         self.assertFalse(self.employee.pin)
         self.assertFalse(self.other_employee.pin)
         with self.assertRaises(AccessError):
@@ -110,6 +115,74 @@ class TestProfile(TransactionCase):
         self.employee.pin = "1234"
         data = self.channel._odooclaw_app_bootstrap()
         self.assertFalse(data["employees"][0]["pin_setup_required"])
+
+    def test_model_settings_persist_per_chat_and_validate_capabilities(self):
+        first = self.create_conversation(self.employee)
+        second = self.create_conversation(self.employee)
+        catalog = {
+            "available": True,
+            "models": [
+                {
+                    "id": "fixture-model",
+                    "efforts": ["medium", "high"],
+                    "tiers": ["default", "priority"],
+                }
+            ],
+        }
+        settings = {
+            "model": "fixture-model",
+            "reasoning_effort": "high",
+            "service_tier": "priority",
+        }
+        with patch.object(
+            type(first), "_odooclaw_app_model_catalog", return_value=catalog
+        ):
+            self.assertEqual(first._odooclaw_app_set_model_settings(settings), settings)
+            self.assertEqual(
+                second._odooclaw_app_model_settings(),
+                {
+                    "model": "gpt-6.1-sol",
+                    "reasoning_effort": "medium",
+                    "service_tier": "default",
+                },
+            )
+            for key, value in [
+                ("model", "missing"),
+                ("reasoning_effort", "ultra"),
+                ("service_tier", "other"),
+            ]:
+                with self.assertRaises(UserError):
+                    first._odooclaw_app_set_model_settings(
+                        dict(settings, **{key: value})
+                    )
+            self.assertEqual(first._odooclaw_app_model_settings(), settings)
+        empty = {key: "" for key in settings}
+        self.assertEqual(
+            first._odooclaw_app_set_model_settings(empty),
+            {
+                "model": "gpt-6.1-sol",
+                "reasoning_effort": "medium",
+                "service_tier": "default",
+            },
+        )
+
+    def test_model_settings_follow_operator_scope(self):
+        mine = self.create_conversation(self.employee)
+        other = self.create_conversation(self.other_employee)
+        self.env["ir.config_parameter"].sudo().set_param("odooclaw.app.enforce", "1")
+        profile = {"user": self.shared, "employee": self.employee}
+        permitted = self.channel._odooclaw_app_with_profile(profile)
+        self.assertEqual(permitted._odooclaw_app_channel(profile, mine.id).id, mine.id)
+        with self.assertRaises(AccessError):
+            permitted._odooclaw_app_channel(profile, other.id)
+        with self.assertRaises(AccessError):
+            permitted.browse(other.id)._odooclaw_app_set_model_settings(
+                {
+                    "model": "",
+                    "reasoning_effort": "",
+                    "service_tier": "",
+                }
+            )
 
     def test_attempt_limit_and_recovery(self):
         self.employee.pin = "1234"
@@ -440,3 +513,107 @@ class TestProfile(TransactionCase):
                 ],
                 self.other_employee,
             )
+
+    def test_record_context_reference_and_selected_files(self):
+        profile = {"user": self.shared, "employee": self.employee}
+        mine = self.create_conversation(self.employee)
+        channel = self.channel._odooclaw_app_with_profile(profile)
+        partner = self.shared.partner_id
+        source = self.env["ir.attachment"].create(
+            {
+                "name": "context-fixture.txt",
+                "raw": b"selected document",
+                "res_model": "res.partner",
+                "res_id": partner.id,
+            }
+        )
+        reference = {"model": "res.partner", "id": partner.id}
+        info = channel._odooclaw_app_record_context(profile, mine.id, reference)
+        self.assertEqual(info["name"], partner.display_name)
+        self.assertIn(source.id, [f["id"] for f in info["attachments"]])
+        self.assertNotIn("raw", str(info))
+        text, ids = channel._odooclaw_prepare_record_context(
+            profile, mine.id, reference, []
+        )
+        self.assertFalse(ids)
+        self.assertIn("Modelo: res.partner", text)
+        text, ids = channel._odooclaw_prepare_record_context(
+            profile, mine.id, reference, [source.id]
+        )
+        copied = self.env["ir.attachment"].browse(ids)
+        self.assertEqual(copied.raw, b"selected document")
+        self.assertEqual(copied.res_model, "mail.channel")
+        self.assertEqual(copied.res_id, mine.id)
+        self.assertNotEqual(copied.id, source.id)
+        self.assertEqual(source.res_model, "res.partner")
+        self.assertEqual(source.res_id, partner.id)
+
+    def test_record_context_rejects_tampering_rules_and_other_profiles(self):
+        profile = {"user": self.shared, "employee": self.employee}
+        mine = self.create_conversation(self.employee)
+        other = self.create_conversation(self.other_employee)
+        channel = self.channel._odooclaw_app_with_profile(profile)
+        partner = self.shared.partner_id
+        reference = {"model": "res.partner", "id": partner.id}
+        for value, error in [
+            (None, UserError),
+            ({"model": "res.partner", "id": True}, AccessError),
+            ({"model": "ir.config_parameter", "id": 1}, AccessError),
+            ({"model": "mail.channel", "id": mine.id}, AccessError),
+            ({"model": "res.partner", "id": partner.id, "name": "forged"}, UserError),
+        ]:
+            with self.assertRaises(error):
+                channel._odooclaw_app_record_context(profile, mine.id, value)
+        with self.assertRaises(AccessError):
+            channel._odooclaw_app_record_context(profile, other.id, reference)
+        foreign = self.env["res.partner"].create({"name": "Forbidden context fixture"})
+        attachment = self.env["ir.attachment"].create(
+            {
+                "name": "other-record.txt",
+                "raw": b"foreign record",
+                "res_model": "res.partner",
+                "res_id": foreign.id,
+            }
+        )
+        with self.assertRaises(AccessError):
+            channel._odooclaw_prepare_record_context(
+                profile, mine.id, reference, [attachment.id]
+            )
+        self.env["ir.rule"].create(
+            {
+                "name": "Context fixture deny record",
+                "model_id": self.env["ir.model"]._get_id("res.partner"),
+                "domain_force": "[('id', '!=', %s)] if user.id == %s else []"
+                % (foreign.id, self.shared.id),
+            }
+        )
+        with self.assertRaises(AccessError):
+            channel._odooclaw_app_record_context(
+                profile, mine.id, {"model": "res.partner", "id": foreign.id}
+            )
+        with self.assertRaises(AccessError):
+            channel._odooclaw_prepare_record_context(
+                profile,
+                mine.id,
+                {"model": "res.partner", "id": foreign.id},
+                [attachment.id],
+            )
+
+    def test_record_context_send_remains_escaped_and_no_automatic_business_action(self):
+        profile = {"user": self.shared, "employee": self.employee}
+        mine = self.create_conversation(self.employee)
+        channel = self.channel._odooclaw_app_with_profile(profile)
+        with patch("threading.Thread.start") as start:
+            result = channel._odooclaw_app_send(
+                profile,
+                mine.id,
+                "Resume este registro <script>",
+                [],
+                {"model": "res.partner", "id": self.shared.partner_id.id},
+                [],
+            )
+            start.assert_not_called()
+        message = self.env["mail.message"].browse(result["id"])
+        self.assertIn("Modelo: res.partner", message.body)
+        self.assertIn("&lt;script&gt;", message.body)
+        self.assertFalse(message.attachment_ids)

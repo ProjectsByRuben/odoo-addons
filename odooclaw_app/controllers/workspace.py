@@ -81,9 +81,27 @@ class WorkspaceController(http.Controller):
         body="",
         attachment_ids=None,
         company_ids=None,
+        record_context=None,
+        record_attachment_ids=None,
     ):
         channel, profile = self._profile(token, company_ids)
-        return channel._odooclaw_app_send(profile, channel_id, body, attachment_ids)
+        return channel._odooclaw_app_send(
+            profile,
+            channel_id,
+            body,
+            attachment_ids,
+            record_context,
+            record_attachment_ids,
+        )
+
+    @http.route(
+        "/odooclaw/app/record_context", type="json", auth="user", methods=["POST"]
+    )
+    def record_context(
+        self, token=None, channel_id=None, reference=None, company_ids=None
+    ):
+        channel, profile = self._profile(token, company_ids)
+        return channel._odooclaw_app_record_context(profile, channel_id, reference)
 
     @http.route("/odooclaw/app/rename", type="json", auth="user", methods=["POST"])
     def rename(self, token=None, channel_id=None, name="", company_ids=None):
@@ -144,3 +162,23 @@ class WorkspaceController(http.Controller):
     def usage(self, token=None, channel_id=None, company_ids=None):
         channel, profile = self._profile(token, company_ids)
         return channel._odooclaw_app_channel(profile, channel_id).odooclaw_model_usage()
+
+    @http.route("/odooclaw/app/models", type="json", auth="user", methods=["POST"])
+    def models(self, token=None, channel_id=None, company_ids=None):
+        channel, profile = self._profile(token, company_ids)
+        record = channel._odooclaw_app_channel(profile, channel_id)
+        return {
+            "catalog": channel._odooclaw_app_model_catalog(),
+            "settings": record._odooclaw_app_model_settings(),
+        }
+
+    @http.route(
+        "/odooclaw/app/model_settings", type="json", auth="user", methods=["POST"]
+    )
+    def model_settings(
+        self, token=None, channel_id=None, settings=None, company_ids=None
+    ):
+        channel, profile = self._profile(token, company_ids)
+        return channel._odooclaw_app_channel(
+            profile, channel_id
+        )._odooclaw_app_set_model_settings(settings)

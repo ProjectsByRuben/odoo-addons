@@ -42,6 +42,7 @@ class MailThread(models.AbstractModel):
                 "id": user.id, "name": user.name, "login": user.login,
                 "company_id": self.env.company.id,
                 "company_name": self.env.company.name,
+                "timezone": user.tz or "",
                 "allowed_company_ids": self.env.companies.ids,
             },
             "model_permissions": permissions,
@@ -171,6 +172,10 @@ class MailThread(models.AbstractModel):
                 "invoice_attachments": invoice_attachments,
                 "attachments": other_attachments,
             }
+
+            settings_reader = getattr(channel, "_odooclaw_app_model_settings", None) if channel else None
+            if settings_reader:
+                payload["model_settings"] = settings_reader()
 
             if not is_dm and message.model == "mail.channel":
                 channel = self.env["mail.channel"].browse(message.res_id)

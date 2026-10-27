@@ -3,22 +3,21 @@
 Estas instrucciones son para agentes que modifican el código del addon.
 Lee también el AGENTS.md del proyecto Doodba y scripts/odooclaw/WORKTREES.rst.
 
-## Estado estable
+## Base consolidada
 
-Código integrado en `/home/rubenfernandez/CMP/doodba-cmp/odoo/custom/src/odooclaw-addons`,
-rama `16.0`. La instancia cmpslu utiliza esta carpeta estable; no queda worktree
-activo de OdooClaw. No crear ramas ni comenzar tareas hasta que Rubén lo indique.
-Para una nueva modificación, preparar una rama feature/<tema> o fix/<tema> y un
-worktree bajo odoo/custom/worktrees/odooclaw/<tema>, conservando este repositorio.
-Comprobar status, branch y worktree list antes de actuar. No desarrollar en estable.
+La rama estable es `16.0` en `odoo/custom/src/odooclaw-addons`.
+Reúne modelos por conversación, contexto de registro, archivos elegidos y
+utilidades locales del motor. La instancia de pruebas lee esta base estable.
+El desarrollo está en `odoo/custom/worktrees/odooclaw/desarrollo`, rama
+`dev/local` por componente. No montar worktrees en la instancia por accidente.
+Ver `scripts/odooclaw/WORKTREES.rst` y `PROGRESS.md` del proyecto Doodba.
 
-El módulo `odooclaw_app` integra pantalla completa y flotante, historial, adjuntos,
-progreso, tokens y perfiles independientes entre pestañas. Las cuentas compartidas
-verifican el PIN nativo del empleado: vacío permite alta inicial confirmada por el
-operario (4 a 8 dígitos), nunca sobrescritura de un PIN existente. Un responsable
-restablece los olvidados con permisos nativos de RRHH. Cuentas personales sin PIN
-adicional. Las operaciones de negocio conservan UID, ACL, reglas y compañías.
-La app está instalada en cmpslu; no crear bases alternativas para esta tarea.
+La nueva configuración está en models/model_settings.py y workspace*. Se persiste
+por mail.channel y se valida contra el catálogo del CLI autenticado, manteniendo
+la validación de perfil y permisos del usuario. Las opciones del mensaje viajan
+como snapshot del webhook; no se modifica el proveedor global. Leer README.rst y
+scripts/odooclaw/PROGRESS.md de la tarea. Se mantienen PIN, aislamiento, adjuntos,
+progreso, cuota y permisos de negocio; no desactivar la protección de Discuss.
 
 ## Archivos principales
 
@@ -63,3 +62,9 @@ Guarda los cambios del addon en este repositorio. `origin` es
 ProjectsByRuben/odoo-addons y `upstream` es nicolasramos/odoo-addons. No publiques ni
 integres sin autorización. Actualiza los parches/referencias del proyecto cuando
 corresponda a cambios funcionales; no los regeneres sólo por un AGENTS.md.
+
+Contexto explícito en models/record_context.py; validar ACL/reglas/archivos sin sudo.
+Al enviar, verificar de nuevo y copiar sólo los archivos elegidos al chat de ese
+perfil. No capturar texto HTML de la página, credenciales ni campos en bloque.
+El cliente conserva la referencia seleccionada hasta envío/cambio explícito,
+la borra al cambiar de chat/perfil y descarta RPC tardíos. Ver README.rst.

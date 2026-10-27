@@ -106,6 +106,15 @@
             </header>
             <div class="oc-body" t-if="!props.floating || !state.minimized">
                 <aside class="oc-sidebar" aria-label="Conversaciones">
+                    <div class="oc-sidebar-header">
+                        <strong>Conversaciones</strong>
+                        <button type="button" class="btn oc-icon"
+                                title="Cerrar barra de conversaciones"
+                                aria-label="Cerrar barra de conversaciones"
+                                t-on-click="() => view.sidebar = !view.sidebar">
+                            <i class="fa fa-columns" aria-hidden="true"/>
+                        </button>
+                    </div>
                     <button
             class="btn oc-new"
             t-att-disabled="!state.profile or state.loadingMessages or state.sending"
@@ -193,7 +202,7 @@
                         <div t-if="state.profile" class="oc-lock"><i
                 class="fa fa-check-circle"
               /><div><strong>Hola, <t t-esc="state.profile.name" /></strong><span
-                >Abre una conversación del historial o empieza una nueva.</span></div></div>
+                >Escribe tu mensaje para iniciar un chat o abre una conversación del historial.</span></div></div>
                         <form
               t-elif="state.required"
               class="oc-unlock"
@@ -253,6 +262,67 @@
               t-esc="state.error"
             />
                     </div>
+                    <details t-if="state.activeId" class="oc-model-settings">
+                        <summary><i class="fa fa-sliders me-2" /><t
+                t-esc="modelLabel()"
+              /><span class="ms-2" t-if="state.modelSaving">Guardando…</span></summary>
+                        <div
+              class="oc-model-options"
+              t-if="state.modelSettings and state.modelsAvailable"
+            >
+                            <label>Modelo<select
+                  class="form-select"
+                  t-att-disabled="state.modelSaving"
+                  t-model="state.modelSettings.model"
+                  t-on-change="(ev) => workspace.changeModelSetting('model', ev.target.value)"
+                >
+                                <option value="">Predeterminado del sistema</option>
+                                <t
+                    t-foreach="state.modelCatalog"
+                    t-as="model"
+                    t-key="model.id"
+                  ><option t-att-value="model.id" t-esc="model.name" /></t>
+                            </select></label>
+                            <label>Razonamiento<select
+                  class="form-select"
+                  t-att-disabled="state.modelSaving"
+                  t-model="state.modelSettings.reasoning_effort"
+                  t-on-change="(ev) => workspace.changeModelSetting('reasoning_effort', ev.target.value)"
+                >
+                                <option value="">Predeterminado</option>
+                                <t
+                    t-foreach="selectedModel()?.efforts || []"
+                    t-as="effort"
+                    t-key="effort"
+                  ><option t-att-value="effort" t-esc="effortLabel(effort)" /></t>
+                            </select></label>
+                            <label>Rapidez<select
+                  class="form-select"
+                  t-att-disabled="state.modelSaving"
+                  t-model="state.modelSettings.service_tier"
+                  t-on-change="(ev) => workspace.changeModelSetting('service_tier', ev.target.value)"
+                >
+                                <option value="">Predeterminada</option>
+                                <t
+                    t-foreach="selectedModel()?.tiers || []"
+                    t-as="tier"
+                    t-key="tier"
+                  ><option t-att-value="tier" t-esc="tierLabel(tier)" /></t>
+                            </select></label>
+                        </div>
+                        <small
+              t-if="state.modelsAvailable"
+            >Se guarda sólo en este chat y se aplica a los próximos mensajes. La opción rápida puede consumir más cuota.</small>
+                        <small
+              t-elif="state.modelsLoading"
+            >Consultando modelos de la suscripción…</small>
+                        <div
+              t-else=""
+            >No se ha podido consultar el catálogo. Se conservan los ajustes del chat. <button
+                class="btn btn-link btn-sm"
+                t-on-click="() => workspace.loadModels()"
+              >Reintentar</button></div>
+                    </details>
                     <div t-if="state.activeId" class="oc-history" t-ref="history">
                         <div class="oc-chat-title" t-esc="state.activeName" />
                         <button
@@ -299,6 +369,55 @@
             />
                     </div>
                     <footer class="oc-composer">
+                        <div class="oc-record-tools" t-if="state.profile and state.activeId">
+                            <button type="button" class="btn btn-sm btn-light" t-att-disabled="!canAddCurrentRecord"
+                                    title="Abre un registro guardado en Odoo y añádelo desde la ventana flotante."
+                                    t-on-click="() => workspace.addCurrentRecord()">
+                                <i t-att-class="state.recordContextBusy ? 'fa fa-spinner fa-spin me-1' : 'fa fa-link me-1'"/>
+                                Añadir registro actual
+                            </button>
+                        </div>
+                        <div t-if="state.recordContext" class="oc-record-context">
+                            <div class="oc-context-heading">
+                                <div><strong t-esc="state.recordContext.name"/>
+                                    <span><t t-esc="state.recordContext.model_label"/> · ID <t t-esc="state.recordContext.id"/></span>
+                                </div>
+                                <button type="button" class="btn btn-sm" aria-label="Quitar registro del mensaje"
+                                        t-att-disabled="state.sending" t-on-click="() => workspace.removeRecordContext()"><i class="fa fa-times"/></button>
+                            </div>
+                            <p t-if="!state.recordContext.attachments.length" class="oc-context-empty" role="status">
+                                No hay archivos disponibles en este registro.
+                            </p>
+                            <button t-else="" type="button" class="btn btn-sm btn-link" t-att-disabled="state.sending"
+                                    t-on-click="() => state.contextFilesOpen = !state.contextFilesOpen">
+                                <i class="fa fa-paperclip me-1"/>Archivos del registro
+                                (<t t-esc="state.selectedContextFiles.length"/> seleccionados)
+                            </button>
+                            <div t-if="state.recordContext.attachments.length and state.contextFilesOpen" class="oc-context-files">
+                                <label t-foreach="state.recordContext.attachments" t-as="file" t-key="file.id">
+                                    <input type="checkbox" t-att-checked="state.selectedContextFiles.includes(file.id)"
+                                           t-att-disabled="state.sending or (!state.selectedContextFiles.includes(file.id) and state.selectedContextFiles.length + state.attachments.length >= 20)"
+                                           t-on-change="() => workspace.toggleContextFile(file.id)"/>
+                                    <span t-esc="file.name"/>
+                                </label>
+                                <small t-if="state.recordContext.has_more">Se muestran los 100 archivos más recientes.</small>
+                            </div>
+                            <small>Se enviará la referencia y sólo los archivos que selecciones. Escribe qué necesitas.</small>
+                        </div>
+                        <div t-if="state.profile and state.activeId and !state.recordContext" class="oc-quick-questions">
+                            <span class="oc-quick-label"><i class="fa fa-bolt me-1"/>Preguntas rápidas</span>
+                            <div class="oc-quick-list" role="group" aria-label="Preguntas rápidas"
+                                 t-att-title="state.draft.trim() or state.attachments.length or state.recordContext ? 'Envía o vacía el borrador para usar las preguntas rápidas.' : 'Consultas con los datos de tu sesión; sin IA cuando la información está disponible.'">
+                                <button t-foreach="quickQuestions" t-as="question" t-key="question.id"
+                                        type="button" class="oc-quick-question"
+                                        t-att-title="question.prompt"
+                                        t-att-disabled="quickQuestionsDisabled"
+                                        t-on-click="() => this.askQuickQuestion(question)">
+                                    <t t-esc="question.label"/>
+                                </button>
+                            </div>
+                            <span t-if="state.draft.trim() or state.attachments.length or state.recordContext" class="oc-quick-hint">Envía o vacía el borrador y el contexto para usar estos accesos.</span>
+                        </div>
                         <div class="oc-pending-files"><t
                 t-foreach="state.attachments"
                 t-as="attachment"
@@ -327,14 +446,14 @@
                 rows="2"
                 maxlength="64000"
                 placeholder="Escribe a OdooClaw…"
-                t-att-disabled="!state.profile or !state.activeId or state.sending"
+                t-att-disabled="!state.profile or state.sending or state.loadingMessages"
                 aria-label="Mensaje a OdooClaw"
                 t-on-keydown="onComposerKeydown"
               />
                             <button
                 class="btn"
                 type="submit"
-                t-att-disabled="!state.profile or !state.activeId or !(state.draft.trim() or state.attachments.length) or state.sending or state.uploading"
+                t-att-disabled="!state.profile or state.loadingMessages or !(state.draft.trim() or state.attachments.length) or state.sending or state.modelSaving or state.uploading or state.recordContextBusy"
                 aria-label="Enviar mensaje"
               ><i
                   t-att-class="state.sending ? 'fa fa-spinner fa-spin' : 'fa fa-arrow-up'"

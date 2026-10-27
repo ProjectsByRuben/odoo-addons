@@ -16,6 +16,21 @@ import {Dialog} from "@web/core/dialog/dialog";
 import {registry} from "@web/core/registry";
 import {useService} from "@web/core/utils/hooks";
 
+// Keep prompts aligned with the authenticated-session recognizer in the engine.
+const QUICK_QUESTIONS = Object.freeze([
+  {
+    id: "session",
+    label: "Mi sesión",
+    prompt:
+      "¿Cuál es mi usuario y cuál es mi perfil actual y qué permisos tengo y en qué empresa estoy?",
+  },
+  {
+    id: "settings",
+    label: "Modelo y ajustes",
+    prompt: "¿Qué modelo estoy usando y qué razonamiento tengo seleccionado?",
+  },
+]);
+
 class RenameDialog extends Component {
   setup() {
     this.state = useState({name: this.props.name, busy: false});
@@ -103,6 +118,32 @@ export class Workspace extends Component {
     if ((await this.workspace.send(draft)) && this.state.draft === draft)
       this.state.draft = "";
   }
+  get quickQuestions() {
+    return QUICK_QUESTIONS;
+  }
+  get quickQuestionsDisabled() {
+    return (
+      !this.state.profile ||
+      !this.state.activeId ||
+      Boolean(this.state.draft.trim()) ||
+      this.state.attachments.length > 0 ||
+      Boolean(this.state.recordContext) ||
+      this.state.recordContextBusy ||
+      this.state.sending ||
+      this.state.modelSaving ||
+      this.state.uploading
+    );
+  }
+  get canAddCurrentRecord() {
+    this.state.screenRevision;
+    return Boolean(this.state.profile && this.state.activeId && !this.state.sending &&
+      !this.state.recordContextBusy && this.workspace.currentRecordReference());
+  }
+  async askQuickQuestion(question) {
+    // Never send or discard an existing draft or its documents with a shortcut.
+    if (this.quickQuestionsDisabled || !QUICK_QUESTIONS.includes(question)) return;
+    await this.workspace.send(question.prompt);
+  }
   async openConversation(id) {
     this.state.draft = "";
     this.view.sidebar = false;
@@ -130,6 +171,34 @@ export class Workspace extends Component {
       confirmLabel: "Borrar conversación",
       confirm: () => this.workspace.deleteConversation(conversation.id),
     });
+  }
+  selectedModel() {
+    return (
+      this.state.modelCatalog.find(
+        (item) => item.id === this.state.modelSettings?.model
+      ) || this.state.modelCatalog.find((item) => item.is_default)
+    );
+  }
+  modelLabel() {
+    if (!this.state.modelSettings?.model) return "Modelo del sistema";
+    return this.selectedModel()?.name || this.state.modelSettings.model;
+  }
+  effortLabel(value) {
+    return (
+      {
+        none: "Sin razonamiento",
+        minimal: "Mínimo",
+        low: "Bajo",
+        medium: "Medio",
+        high: "Alto",
+        xhigh: "Muy alto",
+        max: "Máximo",
+        ultra: "Ultra",
+      }[value] || value
+    );
+  }
+  tierLabel(value) {
+    return {default: "Estándar", priority: "Rápida", fast: "Rápida"}[value] || value;
   }
   usageLabel(quota) {
     const duration = quota.duration_minutes;

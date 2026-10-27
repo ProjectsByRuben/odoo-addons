@@ -91,7 +91,15 @@ class Channel(models.Model):
         }
 
     @api.model
-    def _odooclaw_app_send(self, profile, channel_id, body, attachment_ids=None):
+    def _odooclaw_app_send(
+        self,
+        profile,
+        channel_id,
+        body,
+        attachment_ids=None,
+        record_context=None,
+        record_attachment_ids=None,
+    ):
         channel = self._odooclaw_app_channel(profile, channel_id)
         attachment_ids = attachment_ids or []
         if (
@@ -117,6 +125,24 @@ class Channel(models.Model):
             or not (body.strip() or attachments)
         ):
             raise UserError(_("Escribe un mensaje de hasta 64.000 caracteres."))
+        if record_context is not None:
+            selected = record_attachment_ids or []
+            if (
+                not isinstance(selected, list)
+                or len(selected) + len(attachment_ids) > 20
+            ):
+                raise UserError(_("Máximo 20 archivos por mensaje."))
+            reference_text, copied_ids = self._odooclaw_prepare_record_context(
+                profile, channel_id, record_context, selected
+            )
+            body = body.strip() + reference_text
+            if len(body) > 64000:
+                raise UserError(
+                    _("El mensaje con su referencia supera los 64.000 caracteres.")
+                )
+            attachments |= self.env["ir.attachment"].browse(copied_ids)
+        elif record_attachment_ids:
+            raise UserError(_("Selecciona el registro de esos archivos."))
         message = channel.message_post(
             body=Markup("<p>")
             + escape(body.strip()).replace("\n", Markup("<br/>"))

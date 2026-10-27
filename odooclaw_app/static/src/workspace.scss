@@ -62,6 +62,13 @@
     border-right: 1px solid #e4eae6;
     padding: 22px 16px;
   }
+  .oc-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
   .oc-new {
     text-align: left;
     background: #fff;
@@ -408,4 +415,99 @@
   .oc-controls {
     flex-shrink: 0;
   }
+}
+
+.o_odooclaw_workspace .oc-model-settings {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  border-bottom: 1px solid #d8e5e2;
+  background: #f6faf8;
+  summary {
+    cursor: pointer;
+    color: #087f72;
+    font-weight: 600;
+  }
+  small {
+    display: block;
+    margin-top: 8px;
+    color: #52676d;
+  }
+  .oc-model-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  label {
+    flex: 1 1 140px;
+    min-width: 0;
+    font-size: 12px;
+  }
+  select {
+    width: 100%;
+    margin-top: 4px;
+    font-size: 12px;
+  }
+}
+
+
+.o_odooclaw_workspace .oc-quick-questions {
+  margin-bottom: 10px;
+  min-width: 0;
+  .oc-quick-label {
+    display: block;
+    margin-bottom: 5px;
+    color: #52676d;
+    font-size: 11px;
+    text-align: left;
+  }
+  .oc-quick-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+  .oc-quick-question {
+    flex: 0 0 auto;
+    border: 1px solid #cfe1dc;
+    border-radius: 18px;
+    padding: 5px 10px;
+    background: #f3f9f6;
+    color: #22675b;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+    cursor: pointer;
+    &:hover:not(:disabled) {
+      background: #e3f2eb;
+      border-color: #8bbcaf;
+    }
+    &:focus-visible {
+      outline: 2px solid #087f72;
+      outline-offset: 2px;
+    }
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+  }
+  .oc-quick-hint {
+    display: block;
+    color: #52676d;
+    font-size: 11px;
+    text-align: left;
+  }
+}
+
+.o_odooclaw_workspace {
+  .oc-record-tools { display: flex; align-items: center; gap: 6px; text-align: left; margin-bottom: 8px; }
+  .oc-record-context { border: 1px solid #bbd8d0; border-radius: 12px; background: #f0f8f5; padding: 10px 12px; margin-bottom: 10px; text-align: left; }
+  .oc-context-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .oc-context-heading strong { display: block; overflow-wrap: anywhere; }
+  .oc-context-heading span { display: block; font-size: 11px; color: #52676d; }
+  .oc-context-empty { margin: 10px 0 0; color: var(--oc-muted); font-size: 12px; }
+  .oc-context-files { max-height: 150px; overflow: auto; }
+  .oc-context-files label { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 0; overflow-wrap: anywhere; }
+  .oc-record-context small { text-align: left; }
 }
