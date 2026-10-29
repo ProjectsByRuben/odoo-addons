@@ -8,8 +8,11 @@ Lee también el AGENTS.md del proyecto Doodba y scripts/odooclaw/WORKTREES.rst.
 La rama estable es `16.0` en `odoo/custom/src/odooclaw-addons`.
 Reúne modelos por conversación, contexto de registro, archivos elegidos y
 utilidades locales del motor. La instancia de pruebas lee esta base estable.
-El desarrollo está en `odoo/custom/worktrees/odooclaw/desarrollo`, rama
-`dev/local` por componente. No montar worktrees en la instancia por accidente.
+El trabajo habitual se hace directamente en este repositorio original, rama 16.0,
+por la organización autorizada del 29/10/2026. El workspace OdooClaw.code-workspace
+de Doodba abre los tres repositorios originales. Los worktrees dev/local duplicados
+se retiraron sin cambios pendientes; no recrearlos sólo para editar documentación.
+Conservar validaciones y autorización de despliegue para cambios funcionales.
 Ver `scripts/odooclaw/WORKTREES.rst` y `PROGRESS.md` del proyecto Doodba.
 
 La nueva configuración está en models/model_settings.py y workspace*. Se persiste
